@@ -170,6 +170,21 @@ cython_debug/
 # Ruff stuff:
 .ruff_cache/
 
+# Instaladores e binários
+*.msi
+*.exe
+*.dmg
+*.pkg
+
+# Dataset (arquivos grandes do Kaggle — não versionar)
+data/*.csv
+data/*.json
+data/*.gz
+data/*.zip
+
+# Resultados de análise persistidos localmente
+cache/
+
 # PyPI configuration file
 .pypirc
 
