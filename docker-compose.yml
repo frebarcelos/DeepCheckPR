@@ -1,0 +1,31 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8501:8501"         # Streamlit UI
+    volumes:
+      - .:/app              # hot-reload: edições locais refletem no container
+      - ./data:/app/data    # dataset CSV montado separadamente
+      - ./cache:/app/cache  # cache LLM persistido entre sessões
+    env_file:
+      - .env
+    command: streamlit run src/pr_analyzer/ui/app.py --server.address=0.0.0.0
+
+  test:
+    build: .
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    command: pytest tests/ -m "not integration" --tb=short -q
+    profiles:
+      - test               # executa apenas com: docker compose --profile test up test
+
+  lint:
+    build: .
+    volumes:
+      - .:/app
+    command: >
+      sh -c "ruff check src/ tests/ && ruff format --check src/ tests/"
+    profiles:
+      - lint

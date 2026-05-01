@@ -1,0 +1,158 @@
+# CLAUDE.md — GitHub PR Analyzer
+
+## Identidade do Projeto
+
+Ferramenta de análise de Pull Requests do GitHub usando **paradigma funcional** em Python 3.11+.
+Disciplina AL0337 — Linguagens de Programação, UNIPAMPA, Sprint 2.
+5 desenvolvedores (dev1–dev5), TDD obrigatório, pre-commits rigorosos.
+
+## Arquitetura de Módulos
+
+| Módulo | Dev | Tipo | O que faz |
+|---|---|---|---|
+| `src/pr_analyzer/io/` | dev1 | Efeito colateral | Leitura lazy do CSV via geradores; exportadores |
+| `src/pr_analyzer/transforms/` | dev2 | **PURO** | `filter()`, `map()`, `reduce()` sobre PRRecords |
+| `src/pr_analyzer/llm/` | dev3 | Efeito colateral | Chamadas Agno/Groq para classificação semântica |
+| `src/pr_analyzer/cache/` | dev4 | Misto | `hashlib` + `lru_cache` + persistência JSON |
+| `src/pr_analyzer/pipeline/` | dev4 | **PURO** | `compose()`, `build_pipeline()`, HOFs |
+| `src/pr_analyzer/ui/` | dev5 | Efeito colateral | Streamlit: upload, filtros, gráficos, download |
+
+**Módulos PUROS** (`transforms/`, `pipeline/`): zero I/O, zero estado global mutável, zero loops imperativos.
+**Módulos de EFEITO COLATERAL** (`io/`, `llm/`, `cache/`, `ui/`): únicos lugares onde I/O é permitido.
+
+## Regras de Paradigma Funcional (OBRIGATÓRIO)
+
+### Em `transforms/` e `pipeline/` — Violações bloqueiam o commit:
+
+| Regra | Proibido | Alternativa |
+|---|---|---|
+| FP001 | Loop `for` | `map()`, `filter()`, generator expression, `itertools` |
+| FP002 | Loop `while` | Recursão ou `itertools` |
+| FP003 | `x[i] = y` (mutação por índice) | `dict \| {k: v}` ou nova tupla |
+| FP004 | `.append()`, `.update()`, `.pop()`, etc. | `list + [x]`, `frozenset \| {x}` |
+| FP005 | `open()`, `.write()`, `print()` | Isolar em `io/` |
+| FP006 | `LISTA = []` em escopo de módulo | `frozenset`, `tuple` |
+
+### Em todos os arquivos `src/` — Avisos (não bloqueiam):
+
+| Regra | O que verifica |
+|---|---|
+| BP001 | Função pública sem anotação `-> tipo` |
+| BP002 | Função com mais de 30 linhas |
+| BP003 | Função com mais de 5 parâmetros |
+| BP004 | Parâmetro sem anotação de tipo |
+| BP005 | Constante global mutável (ex: `LISTA = []`) — bloqueia |
+
+## Padrões de Código
+
+### Estrutura de funções puras (transforms/)
+```python
+from functools import reduce
+from typing import Callable
+
+def filter_by_state(state: str) -> Callable[[PRRecord], bool]:
+    normalized = state.lower().strip()
+    return lambda pr: pr.state == normalized
+
+def count_by_language(prs: tuple[PRRecord, ...]) -> dict[str, int]:
+    return reduce(
+        lambda acc, pr: acc | {pr.language: acc.get(pr.language, 0) + 1},
+        prs, {}
+    )
+```
+
+### Estrutura de tipos imutáveis
+```python
+from typing import NamedTuple
+
+class PRRecord(NamedTuple):
+    id: int
+    title: str
+    state: str
+    language: str
+    # ... demais campos
+```
+
+### Estrutura de testes (TDD)
+```python
+import pytest
+from hypothesis import given, strategies as st
+
+def test_filter_by_state_returns_only_open(sample_prs: tuple) -> None:
+    result = tuple(filter(filter_by_state("open"), sample_prs))
+    assert all(pr.state == "open" for pr in result)
+
+@given(st.text())
+def test_filter_by_state_does_not_raise(state: str) -> None:
+    predicate = filter_by_state(state)
+    assert callable(predicate)
+```
+
+## Estrutura de Branches
+
+```
+main          ← protegido, só aceita PR revisado por 1 colega
+├── dev/dev1  ← módulo io/
+├── dev/dev2  ← módulo transforms/
+├── dev/dev3  ← módulo llm/
+├── dev/dev4  ← módulos cache/ e pipeline/
+└── dev/dev5  ← módulo ui/ + integração
+```
+
+- Commits até **domingo 23:59** para a verificação semanal
+- PR para `main` exige aprovação de 1 colega
+
+## Cronograma de Fases
+
+| Fase | Verificação | Meta de Cobertura |
+|---|---|---|
+| 1 — Estrutura base | 04/05/2026 | Módulo do dev funciona |
+| 2 — Transformações | 11/05/2026 | >50% |
+| 3 — LLM + Pipeline | 18/05/2026 | >65% |
+| 4 — UI + Integração | 25/05/2026 | **≥80%** |
+| Entrega Final | 01/06/2026 | ≥80% |
+
+## Pre-commit Hooks
+
+| Hook | Quando roda | O que faz |
+|---|---|---|
+| `ruff` | commit | Linting, imports, complexidade ciclomática (max=10), naming |
+| `ruff-format` | commit | Formatação determinística |
+| `mypy` | commit | Type checking estrito (`--strict`) |
+| `check-paradigm` | commit | AST: loops, mutações, I/O em módulos puros |
+| `debug-statements` | commit | Bloqueia `print()` e `breakpoint()` acidentais |
+| `check-added-large-files` | commit | Impede commitar o CSV do dataset (>500KB) |
+| `pytest-unit` | push | Suite completa de testes unitários |
+| `coverage-check` | push | Cobertura ≥80% (branch coverage) |
+| `claude-review` | push | Revisão semântica via Claude API |
+
+## Ambiente de Desenvolvimento
+
+```bash
+cp .env.example .env     # configure GROQ_API_KEY e ANTHROPIC_API_KEY
+make setup               # instala deps + hooks pre-commit e pre-push
+make run                 # Streamlit em localhost:8501
+make test                # testes unitários (sem integração)
+make docker-build        # constrói imagem Docker
+make docker-run          # sobe app no Docker
+```
+
+Todos usam `python:3.11-slim` no Docker para paridade de ambiente.
+
+## O que NUNCA fazer
+
+- **Nunca** usar `for` ou `while` em `transforms/` ou `pipeline/`
+- **Nunca** chamar `.append()`, `.update()` ou qualquer método mutante em módulos puros
+- **Nunca** colocar `open()` ou `print()` fora de `io/` ou `ui/`
+- **Nunca** commitar o arquivo CSV do dataset (está no .gitignore)
+- **Nunca** criar implementação sem escrever o teste antes (TDD)
+- **Nunca** fazer push direto para `main` (branch protegida)
+
+## Ao Revisar Código Neste Projeto
+
+1. Verifique se a função pertence ao módulo correto (puro vs efeito colateral)
+2. Confirme que existe teste antes da implementação (TDD)
+3. Valide anotações de tipo em todas as assinaturas públicas
+4. Prefira `NamedTuple` ou `frozenset` para estruturas de dados
+5. Funções devem ter no máximo 30 linhas e 5 parâmetros
+6. Use `map()`, `filter()`, `reduce()` em vez de loops em módulos puros

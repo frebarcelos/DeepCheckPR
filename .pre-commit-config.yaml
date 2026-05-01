@@ -1,0 +1,78 @@
+repos:
+  # ── Formatação e linting ────────────────────────────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+      - id: ruff          # linting: estilo, imports, complexidade, naming
+        args: [--fix]
+      - id: ruff-format   # formatação determinística (substitui black)
+
+  # ── Type checking ────────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.9.0
+    hooks:
+      - id: mypy
+        args: [--strict, --ignore-missing-imports]
+        additional_dependencies: ["types-all"]
+
+  # ── Checagens básicas de arquivo ─────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: debug-statements        # bloqueia print() e breakpoint() acidentais
+      - id: check-added-large-files
+        args: [--maxkb=500]         # impede commitar o dataset CSV
+
+  # ── Verificações locais ───────────────────────────────────────────────────
+  - repo: local
+    hooks:
+
+      # Verificador de paradigma funcional e boas práticas (AST)
+      # Analisa: loops imperativos, mutações in-place, I/O em módulos puros,
+      #          estado global mutável, funções longas, parâmetros sem tipo.
+      - id: check-paradigm
+        name: "Verificador de paradigma funcional e boas práticas"
+        language: python
+        entry: python scripts/check_paradigm.py
+        types: [python]
+        # Roda em TODOS os .py modificados; o script decide quais regras aplicar
+        # com base no caminho do arquivo (puro vs. camada de efeito colateral)
+
+      # Cobertura mínima de testes: 80%
+      # Roda apenas no git push (lento — executa toda a suite de testes)
+      - id: coverage-check
+        name: "Cobertura de testes >= 80%"
+        language: system
+        entry: >
+          pytest tests/ -m "not integration"
+          --cov=src/pr_analyzer
+          --cov-fail-under=80
+          --cov-report=term-missing
+          --tb=short -q --no-header
+        pass_filenames: false
+        stages: [pre-push]
+
+      # Testes unitários básicos (sem cobertura) — roda no pre-push também
+      # Separado do coverage-check para feedback mais rápido em caso de falha
+      - id: pytest-unit
+        name: "Testes unitários (sem integração)"
+        language: system
+        entry: pytest tests/ -m "not integration" --tb=short -q --no-header
+        pass_filenames: false
+        stages: [pre-push]
+
+      # Revisão semântica via Claude API
+      # Analisa conformidade com paradigma funcional, TDD e Clean Code.
+      # Requer ANTHROPIC_API_KEY no .env — se ausente, é ignorado (sem bloqueio).
+      - id: claude-review
+        name: "Revisão semântica via Claude API"
+        language: python
+        entry: python scripts/claude_review.py
+        pass_filenames: false
+        stages: [pre-push]
+        additional_dependencies: ["anthropic>=0.40"]
