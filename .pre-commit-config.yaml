@@ -70,9 +70,8 @@ repos:
       # Analisa conformidade com paradigma funcional, TDD e Clean Code.
       # Requer ANTHROPIC_API_KEY no .env — se ausente, é ignorado (sem bloqueio).
       - id: claude-review
-        name: "Revisão semântica via Claude API"
-        language: python
+        name: "Revisao de codigo (regras locais)"
+        language: system
         entry: python scripts/claude_review.py
         pass_filenames: false
         stages: [pre-push]
-        additional_dependencies: ["anthropic>=0.40"]
