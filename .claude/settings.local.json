@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Skill(claude-api)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(pip install *)",
+      "Bash(PYTHONIOENCODING=utf-8 python *)",
+      "Bash(git checkout *)",
+      "Bash(git merge frederico-barcelos --no-ff -m ' *)"
     ]
   }
 }
