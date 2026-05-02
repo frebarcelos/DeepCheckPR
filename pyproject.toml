@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "pr-analyzer"
@@ -76,6 +76,7 @@ exclude = ["tests/"]
 # ── Pytest ──────────────────────────────────────────────────────────────────
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 # --cov-fail-under NÃO está aqui — fica no pre-commit (pre-push)
 # para não bloquear execução local de testes durante desenvolvimento
 addopts = "--cov=src/pr_analyzer --cov-report=term-missing -q --no-header"
