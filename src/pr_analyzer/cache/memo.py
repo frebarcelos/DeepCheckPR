@@ -32,7 +32,6 @@ def cached_classify(
 
         result = classifier_fn(*args)
         store[key] = result
-        store.move_to_end(key)
 
         if len(store) > cache_size:
             store.popitem(last=False)
