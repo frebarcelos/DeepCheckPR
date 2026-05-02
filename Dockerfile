@@ -2,14 +2,19 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Dependências do sistema
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Instala dependências Python antes de copiar o código (melhor cache)
+# Atualiza pip e setuptools (necessário para PEP 517 build backend)
+RUN pip install --no-cache-dir --upgrade pip setuptools
+
+# Copia apenas o necessário para instalar dependências (melhor cache de layers)
 COPY pyproject.toml .
-RUN pip install --no-cache-dir -e ".[dev]"
+COPY src/ src/
+
+# Instala dependências — sem -e, não precisa de editable install no container
+RUN pip install --no-cache-dir ".[dev]"
 
 # Instala pre-commit hooks
 COPY .pre-commit-config.yaml .
