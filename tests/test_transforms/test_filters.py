@@ -1,12 +1,22 @@
 from typing import NamedTuple
 
-from pr_analyzer.transforms.filters import by_date_range, by_language, by_state
+from pr_analyzer.transforms.filters import (
+    by_date_range,
+    by_language,
+    by_state,
+    combine_filters,
+    with_min_size,
+    with_non_empty_body,
+)
 
 
 class DummyPR(NamedTuple):
     state: str = ""
     language: str = ""
     created_at: str = ""
+    body: str = ""
+    additions: int = 0
+    deletions: int = 0
 
 
 def test_by_state_match() -> None:
@@ -67,3 +77,43 @@ def test_by_date_range_boundaries() -> None:
     predicate = by_date_range("2023-05-01", "2023-05-31")
     assert predicate(pr_start)
     assert predicate(pr_end)
+
+
+def test_with_non_empty_body_valid() -> None:
+    pr = DummyPR(body="Fixes a bug")
+    predicate = with_non_empty_body()
+    assert predicate(pr)
+
+
+def test_with_non_empty_body_empty_or_spaces() -> None:
+    pr1 = DummyPR(body="")
+    pr2 = DummyPR(body="   \n  ")
+    predicate = with_non_empty_body()
+    assert not predicate(pr1)
+    assert not predicate(pr2)
+
+
+def test_with_min_size() -> None:
+    pr = DummyPR(additions=50, deletions=20)
+    predicate1 = with_min_size(50)
+    predicate2 = with_min_size(100)
+    assert predicate1(pr)
+    assert not predicate2(pr)
+
+
+def test_combine_filters_multiple() -> None:
+    pr1 = DummyPR(state="OPEN", language="Python")
+    pr2 = DummyPR(state="OPEN", language="Java")
+    pr3 = DummyPR(state="CLOSED", language="Python")
+
+    predicate = combine_filters(by_state("OPEN"), by_language("Python"))
+
+    assert predicate(pr1)
+    assert not predicate(pr2)
+    assert not predicate(pr3)
+
+
+def test_combine_filters_empty() -> None:
+    pr = DummyPR(state="OPEN", language="Python")
+    predicate = combine_filters()
+    assert predicate(pr)
