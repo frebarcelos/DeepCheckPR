@@ -1,11 +1,12 @@
 from typing import NamedTuple
 
-from pr_analyzer.transforms.filters import by_language, by_state
+from pr_analyzer.transforms.filters import by_date_range, by_language, by_state
 
 
 class DummyPR(NamedTuple):
-    state: str
-    language: str
+    state: str = ""
+    language: str = ""
+    created_at: str = ""
 
 
 def test_by_state_match() -> None:
@@ -46,3 +47,23 @@ def test_by_language_case_insensitive() -> None:
     predicate = by_language("PyThon")
     assert predicate(pr1)
     assert predicate(pr2)
+
+
+def test_by_date_range_inside() -> None:
+    pr = DummyPR(created_at="2023-05-15T10:00:00Z")
+    predicate = by_date_range("2023-05-01", "2023-05-31")
+    assert predicate(pr)
+
+
+def test_by_date_range_outside() -> None:
+    pr = DummyPR(created_at="2023-06-01T10:00:00Z")
+    predicate = by_date_range("2023-05-01", "2023-05-31")
+    assert not predicate(pr)
+
+
+def test_by_date_range_boundaries() -> None:
+    pr_start = DummyPR(created_at="2023-05-01T00:00:00Z")
+    pr_end = DummyPR(created_at="2023-05-31T23:59:59Z")
+    predicate = by_date_range("2023-05-01", "2023-05-31")
+    assert predicate(pr_start)
+    assert predicate(pr_end)
