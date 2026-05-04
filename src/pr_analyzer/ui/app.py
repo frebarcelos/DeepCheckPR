@@ -26,12 +26,6 @@ html, body, [data-testid="stAppViewContainer"] {
     background-color: #09090b;
 }
 
-/* ── hide streamlit chrome ── */
-#MainMenu, footer, [data-testid="stToolbar"],
-[data-testid="stDecoration"], [data-testid="stStatusWidget"] {
-    display: none !important;
-}
-
 /* ── sidebar ── */
 [data-testid="stSidebar"] {
     background-color: #18181b !important;
