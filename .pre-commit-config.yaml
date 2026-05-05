@@ -13,7 +13,6 @@ repos:
     hooks:
       - id: mypy
         args: [--strict, --ignore-missing-imports]
-        additional_dependencies: ["types-all"]
 
   # ── Checagens básicas de arquivo ─────────────────────────────────────────
   - repo: https://github.com/pre-commit/pre-commit-hooks
