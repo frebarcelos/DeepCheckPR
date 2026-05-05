@@ -6,7 +6,15 @@
       "Bash(pip install *)",
       "Bash(PYTHONIOENCODING=utf-8 python *)",
       "Bash(git checkout *)",
-      "Bash(git merge frederico-barcelos --no-ff -m ' *)"
+      "Bash(git merge frederico-barcelos --no-ff -m ' *)",
+      "Bash(git push *)",
+      "Bash(git rebase *)",
+      "Bash(git stash *)",
+      "Bash(pre-commit --version)",
+      "Bash(pre-commit run *)",
+      "Bash(pip show *)",
+      "Bash(pip list *)",
+      "Bash(where python *)"
     ]
   }
 }

@@ -30,4 +30,4 @@ def create_groq_client() -> LLMClient:
     """
     api_key = os.environ["GROQ_API_KEY"]
     model_id = os.environ.get("LLM_MODEL", "llama3-8b-8192")
-    return Agent(model=Groq(id=model_id, api_key=api_key))
+    return Agent(model=Groq(id=model_id, api_key=api_key))  # type: ignore[no-any-return]

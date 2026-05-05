@@ -23,15 +23,15 @@ st.set_page_config(
 )
 
 # ── Internal imports (after set_page_config) ──────────────────────────────────
-from components.sidebar import render_sidebar           # noqa: E402
-from components.tabs    import (                        # noqa: E402
+from components.sidebar import render_sidebar  # noqa: E402
+from components.tabs import (  # noqa: E402
     render_tab_dashboard,
     render_tab_explorer,
     render_tab_export,
 )
-from utils.constants import APP_NAME, APP_VERSION       # noqa: E402
-from utils.data      import apply_filters, get_mock_data  # noqa: E402
-from utils.styles    import inject_css                  # noqa: E402
+from utils.constants import APP_NAME, APP_VERSION  # noqa: E402
+from utils.data import apply_filters, get_mock_data  # noqa: E402
+from utils.styles import inject_css  # noqa: E402
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
 inject_css()
@@ -68,7 +68,9 @@ if not st.session_state.file_loaded:
     )
     _, btn_col, _ = st.columns([2, 1, 2])
     with btn_col:
-        if st.button("⚡ Utilizar Dados Demo", use_container_width=True, key="demo_cta"):
+        if st.button(
+            "⚡ Utilizar Dados Demo", use_container_width=True, key="demo_cta"
+        ):
             st.session_state.file_loaded = True
             st.session_state.fname = "gh_dataset_2026.csv"
             st.rerun()

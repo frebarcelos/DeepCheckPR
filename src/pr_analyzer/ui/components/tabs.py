@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import pandas as pd
 import streamlit as st
-from streamlit_extras.metric_cards import style_metric_cards  # type: ignore[import]
-
 from components.charts import (
     render_bar_chart,
     render_clarity_gauge,
@@ -16,13 +14,14 @@ from components.charts import (
     render_scatter_chart,
 )
 from components.kpis import render_kpis
+from streamlit_extras.metric_cards import style_metric_cards
 from utils.constants import COL_RENAMES, PREFERRED_COLS
 from utils.data import build_report_markdown
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 1 — DASHBOARD
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 def render_tab_dashboard(df: pd.DataFrame, metrics_active: bool) -> None:
     render_kpis(df, metrics_active)
@@ -56,6 +55,7 @@ def render_tab_dashboard(df: pd.DataFrame, metrics_active: bool) -> None:
 # TAB 2 — EXPLORER
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 def render_tab_explorer(df: pd.DataFrame) -> None:
     st.markdown(
         f"<p style='font-size:9px;font-weight:900;text-transform:uppercase;"
@@ -68,9 +68,9 @@ def render_tab_explorer(df: pd.DataFrame) -> None:
         st.info("Nenhum registro corresponde aos filtros.")
         return
 
-    cols  = [c for c in PREFERRED_COLS if c in df.columns]
+    cols = [c for c in PREFERRED_COLS if c in df.columns]
     extra = [c for c in df.columns if c not in cols]
-    disp  = df[cols + extra].rename(columns=COL_RENAMES)
+    disp = df[cols + extra].rename(columns=COL_RENAMES)
 
     st.dataframe(
         disp,
@@ -92,6 +92,7 @@ def render_tab_explorer(df: pd.DataFrame) -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 3 — EXPORT
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 def render_tab_export(df: pd.DataFrame) -> None:
     report_md = build_report_markdown(df)
@@ -150,6 +151,7 @@ def render_tab_export(df: pd.DataFrame) -> None:
 
 # ── Private helper ─────────────────────────────────────────────────────────────
 
+
 def _export_card(
     col: st.delta_generator.DeltaGenerator,
     icon: str,
@@ -165,11 +167,11 @@ def _export_card(
         st.markdown(
             f'<div class="export-card">'
             f'<div class="export-icon" style="background:{bg};border-radius:14px;'
-            f'width:56px;height:56px;display:flex;align-items:center;justify-content:center;'
+            f"width:56px;height:56px;display:flex;align-items:center;justify-content:center;"
             f'margin:0 auto 1rem;font-size:24px;">{icon}</div>'
             f'<div class="export-title">{title}</div>'
             f'<div class="export-desc">{desc}</div>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
         st.download_button(
