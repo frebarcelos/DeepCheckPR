@@ -6,8 +6,7 @@ Returns filter selections so app.py stays decoupled from widget state.
 from __future__ import annotations
 
 import streamlit as st
-
-from utils.data import get_mock_data, get_filter_options, load_dataframe
+from utils.data import get_filter_options, get_mock_data, load_dataframe
 
 
 def render_sidebar() -> tuple[str, str, bool, bool, bool]:
@@ -28,6 +27,7 @@ def render_sidebar() -> tuple[str, str, bool, bool, bool]:
 
 
 # ── Private helpers ───────────────────────────────────────────────────────────
+
 
 def _render_brand() -> None:
     st.markdown(
@@ -93,15 +93,15 @@ def _render_data_section() -> None:
 
 def _render_pipeline() -> tuple[bool, bool, bool]:
     st.markdown("### ⚙ PIPELINE")
-    cleaning = st.toggle("Sanitização Funcional", value=True,  key="cleaning")
-    llm_tag  = st.toggle("Classificação LLM",     value=True,  key="llm")
-    metrics  = st.toggle("Geração de Métricas",   value=False, key="metrics")
+    cleaning = st.toggle("Sanitização Funcional", value=True, key="cleaning")
+    llm_tag = st.toggle("Classificação LLM", value=True, key="llm")
+    metrics = st.toggle("Geração de Métricas", value=False, key="metrics")
     return cleaning, llm_tag, metrics
 
 
 def _render_filters() -> tuple[str, str]:
     st.markdown("### 🔍 REFINAR VISÃO")
     langs, natures = get_filter_options(st.session_state.df)
-    sel_lang   = st.selectbox("LINGUAGEM", langs)
-    sel_nature = st.selectbox("NATUREZA",  natures)
+    sel_lang = st.selectbox("LINGUAGEM", langs)
+    sel_nature = st.selectbox("NATUREZA", natures)
     return sel_lang, sel_nature

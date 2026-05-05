@@ -17,7 +17,8 @@ SCRIPTS_DIR = Path(__file__).parent
 def _get_committed_python_files() -> list[str]:
     result = subprocess.run(
         ["git", "diff", "--name-only", "HEAD~1..HEAD", "--diff-filter=ACM"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     return [f for f in result.stdout.splitlines() if f.endswith(".py")]
 
@@ -30,8 +31,9 @@ def main() -> int:
 
     checker = SCRIPTS_DIR / "check_paradigm.py"
     result = subprocess.run(
-        [sys.executable, str(checker)] + files,
-        capture_output=True, text=True,
+        [sys.executable, str(checker), *files],
+        capture_output=True,
+        text=True,
     )
 
     output = result.stdout.strip()
@@ -50,14 +52,14 @@ def main() -> int:
     print("-" * 60)
 
     if has_errors:
-        print(f"STATUS: FAIL — violacoes criticas bloqueiam o push.")
+        print("STATUS: FAIL — violacoes criticas bloqueiam o push.")
         print(f"Arquivos revisados: {', '.join(files)}")
         return 1
 
     if has_warnings:
-        print(f"STATUS: WARN — avisos encontrados, revise quando possivel.")
+        print("STATUS: WARN — avisos encontrados, revise quando possivel.")
     else:
-        print(f"STATUS: PASS — todos os arquivos conformes com o paradigma.")
+        print("STATUS: PASS — todos os arquivos conformes com o paradigma.")
 
     print(f"Arquivos revisados: {', '.join(files)}")
     return 0
