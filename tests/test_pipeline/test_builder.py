@@ -61,8 +61,62 @@ def test_pipe_consistent_with_compose() -> None:
     assert pipe(3, double, add_one) == compose(double, add_one)(3)
 
 
-# ── TASK-26: build_pipeline() — contrato (RED até TASK-26) ───────────────────
+# ── TASK-26: build_pipeline() ────────────────────────────────────────────────
+# Mocks: lambdas simples no lugar de PRRecord + filtros/mappers reais do dev2.
+# No merge da Sprint 3, os testes de integração substituem estes mocks.
 
-def test_build_pipeline_raises_not_implemented() -> None:
-    with pytest.raises(NotImplementedError):
-        build_pipeline(iter([]), filters=(), mappers=())
+def test_build_pipeline_sem_filtros_sem_mappers() -> None:
+    result = list(build_pipeline([1, 2, 3], filters=(), mappers=()))
+    assert result == [1, 2, 3]
+
+
+def test_build_pipeline_filtro_unico() -> None:
+    is_even: callable = lambda x: x % 2 == 0
+    result = list(build_pipeline([1, 2, 3, 4, 5], filters=(is_even,), mappers=()))
+    assert result == [2, 4]
+
+
+def test_build_pipeline_filtros_combinados() -> None:
+    is_even: callable = lambda x: x % 2 == 0
+    gt_two: callable = lambda x: x > 2
+    result = list(build_pipeline([1, 2, 3, 4, 5, 6], filters=(is_even, gt_two), mappers=()))
+    assert result == [4, 6]
+
+
+def test_build_pipeline_mapper_unico() -> None:
+    double: callable = lambda x: x * 2
+    result = list(build_pipeline([1, 2, 3], filters=(), mappers=(double,)))
+    assert result == [2, 4, 6]
+
+
+def test_build_pipeline_filtro_depois_mapper() -> None:
+    is_even: callable = lambda x: x % 2 == 0
+    double: callable = lambda x: x * 2
+    result = list(build_pipeline([1, 2, 3, 4, 5], filters=(is_even,), mappers=(double,)))
+    assert result == [4, 8]
+
+
+def test_build_pipeline_mappers_compostos() -> None:
+    double: callable = lambda x: x * 2
+    add_one: callable = lambda x: x + 1
+    result = list(build_pipeline([1, 2, 3], filters=(), mappers=(double, add_one)))
+    assert result == [3, 5, 7]
+
+
+def test_build_pipeline_retorna_iteravel_lazy() -> None:
+    calls: list[int] = []
+
+    def rastrear(x: int) -> int:
+        calls.append(x)
+        return x
+
+    result = build_pipeline(range(1000), filters=(), mappers=(rastrear,))
+    assert not isinstance(result, (list, tuple))
+    next(iter(result))
+    assert len(calls) == 1
+
+
+def test_build_pipeline_source_vazio() -> None:
+    is_even: callable = lambda x: x % 2 == 0
+    result = list(build_pipeline([], filters=(is_even,), mappers=()))
+    assert result == []

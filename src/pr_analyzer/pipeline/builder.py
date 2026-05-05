@@ -22,4 +22,5 @@ def build_pipeline(
     mappers: tuple[Callable, ...] = (),
 ) -> Iterable:
     """Pipeline lazy: aplica filters com filter() e mappers com map() sobre source."""
-    raise NotImplementedError
+    filtered = reduce(lambda s, f: filter(f, s), filters, source)
+    return reduce(lambda s, m: map(m, s), mappers, filtered)
