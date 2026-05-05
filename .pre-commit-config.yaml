@@ -27,6 +27,25 @@ repos:
       - id: check-added-large-files
         args: [--maxkb=500]         # impede commitar o dataset CSV
 
+  # ── Mensagem de commit (Conventional Commits) ────────────────────────────
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args:
+          - feat      # nova funcionalidade
+          - fix       # correção de bug
+          - test      # adição ou correção de testes
+          - docs      # documentação
+          - chore     # manutenção, configs, dependências
+          - refactor  # refatoração sem mudança de comportamento
+          - style     # formatação, espaçamento (sem lógica)
+          - perf      # melhoria de performance
+          - ci        # CI/CD e pipelines
+          - build     # sistema de build, Docker, Makefile
+          - revert    # reverter commit anterior
+
   # ── Verificações locais ───────────────────────────────────────────────────
   - repo: local
     hooks:
