@@ -1,18 +1,25 @@
-from typing import Callable, TypeVar
+from functools import reduce
+from typing import Callable, Iterable, TypeVar
 
 T = TypeVar("T")
 
 
 def compose(*fns: Callable) -> Callable:
-    """Retorna uma função que aplica fns em sequência: compose(f, g)(x) == g(f(x))."""
-    raise NotImplementedError
+    """compose(f, g, h)(x) == h(g(f(x))). Sem args retorna identidade."""
+    if not fns:
+        return lambda x: x
+    return reduce(lambda f, g: lambda x: g(f(x)), fns)
 
 
 def pipe(value: T, *fns: Callable) -> T:
-    """Aplica fns em sequência sobre value: pipe(x, f, g) == g(f(x))."""
-    raise NotImplementedError
+    """pipe(x, f, g, h) == h(g(f(x))). Sem fns retorna value."""
+    return reduce(lambda acc, f: f(acc), fns, value)
 
 
-def build_pipeline(*steps: Callable) -> Callable:
-    """Constrói um pipeline reutilizável a partir de steps funcionais."""
+def build_pipeline(
+    source: Iterable,
+    filters: tuple[Callable, ...] = (),
+    mappers: tuple[Callable, ...] = (),
+) -> Iterable:
+    """Pipeline lazy: aplica filters com filter() e mappers com map() sobre source."""
     raise NotImplementedError
