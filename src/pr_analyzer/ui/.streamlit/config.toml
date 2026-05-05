@@ -1,0 +1,22 @@
+[server]
+headless = true
+runOnSave = true
+fileWatcherType = "auto"
+
+[client]
+toolbarMode = "minimal"
+showErrorDetails = false
+
+[ui]
+hideTopBar = true
+
+[theme]
+base = "dark"
+backgroundColor = "#09090b"
+secondaryBackgroundColor = "#18181b"
+textColor = "#f4f4f5"
+primaryColor = "#6366f1"
+font = "sans serif"
+
+[logger]
+level = "error"
