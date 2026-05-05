@@ -14,21 +14,77 @@ import streamlit as st
 
 # ─── Mock / demo dataset ─────────────────────────────────────────────────────
 
-@st.cache_data(show_spinner=False)
+
+@st.cache_data(show_spinner=False)  # type: ignore[misc]
 def get_mock_data() -> pd.DataFrame:
     """Return a small but representative demo DataFrame."""
     rows: list[dict[str, Any]] = [
-        {"id": 1, "lang": "Python",     "type": "Library",   "nature": "Bug Fix",       "clarity": "Excellent",    "size": 450, "repo": "pandas",       "date": "2024-03-01"},
-        {"id": 2, "lang": "JavaScript", "type": "Framework",  "nature": "Feature",       "clarity": "Basic",        "size": 120, "repo": "next.js",      "date": "2024-03-02"},
-        {"id": 3, "lang": "Go",         "type": "CLI Tool",   "nature": "Refactor",      "clarity": "Good",         "size": 300, "repo": "terraform",    "date": "2024-03-02"},
-        {"id": 4, "lang": "Python",     "type": "Library",   "nature": "Feature",       "clarity": "Good",         "size": 800, "repo": "scikit-learn", "date": "2024-03-03"},
-        {"id": 5, "lang": "TypeScript", "type": "Web App",    "nature": "Documentation", "clarity": "Insufficient", "size": 50,  "repo": "vscode",       "date": "2024-03-04"},
-        {"id": 6, "lang": "Java",       "type": "Framework",  "nature": "Bug Fix",       "clarity": "Excellent",    "size": 600, "repo": "spring",       "date": "2024-03-05"},
+        {
+            "id": 1,
+            "lang": "Python",
+            "type": "Library",
+            "nature": "Bug Fix",
+            "clarity": "Excellent",
+            "size": 450,
+            "repo": "pandas",
+            "date": "2024-03-01",
+        },
+        {
+            "id": 2,
+            "lang": "JavaScript",
+            "type": "Framework",
+            "nature": "Feature",
+            "clarity": "Basic",
+            "size": 120,
+            "repo": "next.js",
+            "date": "2024-03-02",
+        },
+        {
+            "id": 3,
+            "lang": "Go",
+            "type": "CLI Tool",
+            "nature": "Refactor",
+            "clarity": "Good",
+            "size": 300,
+            "repo": "terraform",
+            "date": "2024-03-02",
+        },
+        {
+            "id": 4,
+            "lang": "Python",
+            "type": "Library",
+            "nature": "Feature",
+            "clarity": "Good",
+            "size": 800,
+            "repo": "scikit-learn",
+            "date": "2024-03-03",
+        },
+        {
+            "id": 5,
+            "lang": "TypeScript",
+            "type": "Web App",
+            "nature": "Documentation",
+            "clarity": "Insufficient",
+            "size": 50,
+            "repo": "vscode",
+            "date": "2024-03-04",
+        },
+        {
+            "id": 6,
+            "lang": "Java",
+            "type": "Framework",
+            "nature": "Bug Fix",
+            "clarity": "Excellent",
+            "size": 600,
+            "repo": "spring",
+            "date": "2024-03-05",
+        },
     ]
     return pd.DataFrame(rows)
 
 
 # ─── Loading from uploaded files ─────────────────────────────────────────────
+
 
 def load_dataframe(file: BytesIO, filename: str) -> pd.DataFrame:
     """
@@ -45,6 +101,7 @@ def load_dataframe(file: BytesIO, filename: str) -> pd.DataFrame:
 
 # ─── Filtering (pure transform) ──────────────────────────────────────────────
 
+
 def apply_filters(
     df: pd.DataFrame,
     lang: str,
@@ -52,14 +109,15 @@ def apply_filters(
 ) -> pd.DataFrame:
     """Return a filtered copy of *df* without mutating the original."""
     result = df.copy()
-    if lang   != "Todas" and "lang"   in result.columns:
-        result = result[result["lang"]   == lang]
+    if lang != "Todas" and "lang" in result.columns:
+        result = result[result["lang"] == lang]
     if nature != "Todas" and "nature" in result.columns:
         result = result[result["nature"] == nature]
     return result
 
 
 # ─── Export helpers ───────────────────────────────────────────────────────────
+
 
 def build_report_markdown(df: pd.DataFrame) -> str:
     """Generate a plain-text executive report from *df*."""
@@ -79,6 +137,14 @@ def build_report_markdown(df: pd.DataFrame) -> str:
 
 def get_filter_options(df: pd.DataFrame) -> tuple[list[str], list[str]]:
     """Return (lang_options, nature_options) including a 'Todas' sentinel."""
-    langs   = ["Todas"] + sorted(df["lang"].dropna().unique().tolist())   if "lang"   in df.columns else ["Todas"]
-    natures = ["Todas"] + sorted(df["nature"].dropna().unique().tolist()) if "nature" in df.columns else ["Todas"]
+    langs = (
+        ["Todas", *sorted(df["lang"].dropna().unique().tolist())]
+        if "lang" in df.columns
+        else ["Todas"]
+    )
+    natures = (
+        ["Todas", *sorted(df["nature"].dropna().unique().tolist())]
+        if "nature" in df.columns
+        else ["Todas"]
+    )
     return langs, natures

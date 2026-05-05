@@ -50,12 +50,12 @@ def gerar_informe(descricao: str) -> str:
         ],
     )
 
-    return message.content[0].text
+    return str(message.content[0].text)
 
 
 def main() -> None:
     if len(sys.argv) < 2:
-        print("Uso: python scripts/claudinho.py \"descrição do informe\"")
+        print('Uso: python scripts/claudinho.py "descrição do informe"')
         sys.exit(1)
 
     descricao = " ".join(sys.argv[1:])
