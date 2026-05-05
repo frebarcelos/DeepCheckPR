@@ -1,19 +1,20 @@
 """Testes para src/pr_analyzer/llm/classifiers.py — TASK-09."""
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
+
 from pr_analyzer.llm.classifiers import (
-    PROJECT_TYPES,
     CONTRIBUTION_NATURES,
     DESCRIPTION_CLARITY_LEVELS,
-    classify_project_type,
+    PROJECT_TYPES,
     classify_contribution_nature,
     classify_description_clarity,
+    classify_project_type,
 )
 
 
-@pytest.fixture
+@pytest.fixture()  # type: ignore[misc]
 def mock_client() -> MagicMock:
     return MagicMock()
 
@@ -66,8 +67,12 @@ def test_classify_project_type_aceita_lista_vazia(mock_client: MagicMock) -> Non
 # ── classify_contribution_nature ──────────────────────────────────────────────
 
 
-def test_classify_contribution_nature_retorna_valor_válido(mock_client: MagicMock) -> None:
-    result = classify_contribution_nature("Fix memory leak", "Detailed description here.", mock_client)
+def test_classify_contribution_nature_retorna_valor_válido(
+    mock_client: MagicMock,
+) -> None:
+    result = classify_contribution_nature(
+        "Fix memory leak", "Detailed description here.", mock_client
+    )
     assert result in CONTRIBUTION_NATURES
 
 
@@ -84,7 +89,9 @@ def test_classify_contribution_nature_aceita_body_vazio(mock_client: MagicMock) 
 # ── classify_description_clarity ──────────────────────────────────────────────
 
 
-def test_classify_description_clarity_retorna_valor_válido(mock_client: MagicMock) -> None:
+def test_classify_description_clarity_retorna_valor_válido(
+    mock_client: MagicMock,
+) -> None:
     result = classify_description_clarity("Some PR body text with detail.", mock_client)
     assert result in DESCRIPTION_CLARITY_LEVELS
 
