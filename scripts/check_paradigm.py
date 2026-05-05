@@ -15,6 +15,9 @@ import sys
 from pathlib import Path
 from typing import NamedTuple
 
+sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+
 # Módulos que devem ser puramente funcionais (sem efeitos colaterais)
 PURE_MODULES = frozenset({"transforms", "pipeline"})
 
