@@ -8,28 +8,34 @@ from pr_analyzer.llm.client import LLMClient
 
 # ── Valores válidos de cada classificação ─────────────────────────────────────
 
-PROJECT_TYPES: frozenset[str] = frozenset({
-    "biblioteca",
-    "aplicação web",
-    "framework",
-    "ferramenta",
-    "outro",
-})
+PROJECT_TYPES: frozenset[str] = frozenset(
+    {
+        "biblioteca",
+        "aplicação web",
+        "framework",
+        "ferramenta",
+        "outro",
+    }
+)
 
-CONTRIBUTION_NATURES: frozenset[str] = frozenset({
-    "bug fix",
-    "feature",
-    "refatoração",
-    "documentação",
-    "outro",
-})
+CONTRIBUTION_NATURES: frozenset[str] = frozenset(
+    {
+        "bug fix",
+        "feature",
+        "refatoração",
+        "documentação",
+        "outro",
+    }
+)
 
-DESCRIPTION_CLARITY_LEVELS: frozenset[str] = frozenset({
-    "insuficiente",
-    "básica",
-    "boa",
-    "excelente",
-})
+DESCRIPTION_CLARITY_LEVELS: frozenset[str] = frozenset(
+    {
+        "insuficiente",
+        "básica",
+        "boa",
+        "excelente",
+    }
+)
 
 
 # ── Classificadores ───────────────────────────────────────────────────────────

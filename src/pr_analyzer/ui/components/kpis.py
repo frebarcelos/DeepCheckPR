@@ -13,12 +13,13 @@ def render_kpis(df: pd.DataFrame, metrics_active: bool) -> None:
     k1, k2, k3, k4 = st.columns(4, gap="small")
 
     k1.metric("● PRs Processados", len(df))
-    k2.metric("● Clareza (LLM)",   _compute_clarity_grade(df))
-    k3.metric("● Volatilidade",    _compute_volatility(df))
-    k4.metric("● Cache Agno",      "Ativo" if metrics_active else "Inativo")
+    k2.metric("● Clareza (LLM)", _compute_clarity_grade(df))
+    k3.metric("● Volatilidade", _compute_volatility(df))
+    k4.metric("● Cache Agno", "Ativo" if metrics_active else "Inativo")
 
 
 # ── Pure helpers ──────────────────────────────────────────────────────────────
+
 
 def _compute_clarity_grade(df: pd.DataFrame) -> str:
     if "clarity" not in df.columns or len(df) == 0:

@@ -9,7 +9,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-
 from utils.constants import (
     CLARITY_COLOR,
     CLARITY_ORDER,
@@ -18,7 +17,7 @@ from utils.constants import (
 )
 
 _NO_DATA_MSG = "Sem dados para exibir."
-_CHART_CFG   = {"displayModeBar": False}
+_chart_cfg = {"displayModeBar": False}
 
 
 def render_bar_chart(df: pd.DataFrame) -> None:
@@ -53,13 +52,20 @@ def render_bar_chart(df: pd.DataFrame) -> None:
         **PLOT_BASE,
         showlegend=False,
         bargap=0.35,
-        xaxis=dict(showgrid=False, zeroline=False, tickfont=dict(size=10, color="#52525b")),
-        yaxis=dict(
-            showgrid=True, gridcolor="#27272a", zeroline=False,
-            tickfont=dict(size=10, color="#52525b"), gridwidth=0.5,
-        ),
+        xaxis={
+            "showgrid": False,
+            "zeroline": False,
+            "tickfont": {"size": 10, "color": "#52525b"},
+        },
+        yaxis={
+            "showgrid": True,
+            "gridcolor": "#27272a",
+            "zeroline": False,
+            "tickfont": {"size": 10, "color": "#52525b"},
+            "gridwidth": 0.5,
+        },
     )
-    st.plotly_chart(fig, use_container_width=True, config=_CHART_CFG)
+    st.plotly_chart(fig, use_container_width=True, config=_chart_cfg)
 
 
 def render_scatter_chart(df: pd.DataFrame) -> None:
@@ -90,17 +96,22 @@ def render_scatter_chart(df: pd.DataFrame) -> None:
     fig.update_layout(
         **PLOT_BASE,
         showlegend=False,
-        xaxis=dict(
-            showgrid=False, zeroline=False,
-            ticksuffix=" chars", tickfont=dict(size=9, color="#52525b"),
-        ),
-        yaxis=dict(
-            showgrid=True, gridcolor="#27272a", gridwidth=0.5,
-            zeroline=False, tickfont=dict(size=9, color="#52525b"),
-        ),
+        xaxis={
+            "showgrid": False,
+            "zeroline": False,
+            "ticksuffix": " chars",
+            "tickfont": {"size": 9, "color": "#52525b"},
+        },
+        yaxis={
+            "showgrid": True,
+            "gridcolor": "#27272a",
+            "gridwidth": 0.5,
+            "zeroline": False,
+            "tickfont": {"size": 9, "color": "#52525b"},
+        },
     )
-    fig.update_traces(marker=dict(size=13, opacity=0.8, line=dict(width=0)))
-    st.plotly_chart(fig, use_container_width=True, config=_CHART_CFG)
+    fig.update_traces(marker={"size": 13, "opacity": 0.8, "line": {"width": 0}})
+    st.plotly_chart(fig, use_container_width=True, config=_chart_cfg)
 
 
 def render_lang_donut(df: pd.DataFrame) -> None:
@@ -127,20 +138,27 @@ def render_lang_donut(df: pd.DataFrame) -> None:
             labels=lc["Linguagem"],
             values=lc["Qtd"],
             hole=0.62,
-            marker=dict(
-                colors=["#818cf8", "#34d399", "#fbbf24", "#f87171", "#a78bfa", "#60a5fa"],
-                line=dict(color="#09090b", width=2),
-            ),
+            marker={
+                "colors": [
+                    "#818cf8",
+                    "#34d399",
+                    "#fbbf24",
+                    "#f87171",
+                    "#a78bfa",
+                    "#60a5fa",
+                ],
+                "line": {"color": "#09090b", "width": 2},
+            },
             hovertemplate="<b>%{label}</b><br>%{value} PRs (%{percent})<extra></extra>",
             textinfo="none",
         )
     )
     fig.update_layout(**PLOT_BASE)
-    st.plotly_chart(fig, use_container_width=True, config=_CHART_CFG)
+    st.plotly_chart(fig, use_container_width=True, config=_chart_cfg)
 
 
 def render_clarity_gauge(df: pd.DataFrame) -> None:
-    """Gauge: average clarity score (0–100)."""
+    """Gauge: average clarity score (0-100)."""
     st.markdown(
         """
         <div class="chart-panel">
@@ -155,22 +173,29 @@ def render_clarity_gauge(df: pd.DataFrame) -> None:
         st.info(_NO_DATA_MSG)
         return
 
-    order  = {"Excellent": 100, "Good": 75, "Basic": 40, "Insufficient": 10}
-    avg    = df["clarity"].map(order).mean()
-    score  = round(avg) if not pd.isna(avg) else 0
+    order = {"Excellent": 100, "Good": 75, "Basic": 40, "Insufficient": 10}
+    avg = df["clarity"].map(order).mean()
+    score = round(avg) if not pd.isna(avg) else 0
 
     fig = go.Figure(
         go.Indicator(
             mode="gauge+number",
             value=score,
-            number={"suffix": "%", "font": {"size": 32, "color": "#f4f4f5", "family": "Inter"}},
+            number={
+                "suffix": "%",
+                "font": {"size": 32, "color": "#f4f4f5", "family": "Inter"},
+            },
             gauge={
-                "axis":  {"range": [0, 100], "tickcolor": "#52525b", "tickfont": {"size": 9}},
-                "bar":   {"color": "#6366f1", "thickness": 0.25},
+                "axis": {
+                    "range": [0, 100],
+                    "tickcolor": "#52525b",
+                    "tickfont": {"size": 9},
+                },
+                "bar": {"color": "#6366f1", "thickness": 0.25},
                 "bgcolor": "#27272a",
                 "steps": [
-                    {"range": [0, 40],   "color": "rgba(248,113,113,.15)"},
-                    {"range": [40, 75],  "color": "rgba(251,191,36,.10)"},
+                    {"range": [0, 40], "color": "rgba(248,113,113,.15)"},
+                    {"range": [40, 75], "color": "rgba(251,191,36,.10)"},
                     {"range": [75, 100], "color": "rgba(52,211,153,.10)"},
                 ],
                 "threshold": {
@@ -182,4 +207,4 @@ def render_clarity_gauge(df: pd.DataFrame) -> None:
         )
     )
     fig.update_layout(**{**PLOT_BASE, "height": 220})
-    st.plotly_chart(fig, use_container_width=True, config=_CHART_CFG)
+    st.plotly_chart(fig, use_container_width=True, config=_chart_cfg)
