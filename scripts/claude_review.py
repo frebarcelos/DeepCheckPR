@@ -34,6 +34,7 @@ def main() -> int:
         [sys.executable, str(checker), *files],
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
 
     output = result.stdout.strip()
