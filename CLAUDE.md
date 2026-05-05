@@ -112,10 +112,54 @@ main          ← protegido, só aceita PR revisado por 1 colega
 | 4 — UI + Integração | 25/05/2026 | **≥80%** |
 | Entrega Final | 01/06/2026 | ≥80% |
 
+## Padrão de Mensagem de Commit (OBRIGATÓRIO)
+
+Todo commit deve seguir o formato **Conventional Commits**. O hook `conventional-pre-commit` bloqueia qualquer commit que não siga o padrão.
+
+```
+<tipo>(<escopo opcional>): <descrição curta em minúsculas>
+```
+
+### Tipos permitidos
+
+| Tipo | Quando usar |
+|------|-------------|
+| `feat` | Nova funcionalidade |
+| `fix` | Correção de bug |
+| `test` | Adição ou correção de testes |
+| `docs` | Documentação |
+| `chore` | Manutenção, configs, dependências |
+| `refactor` | Refatoração sem mudança de comportamento |
+| `style` | Formatação, espaçamento (sem lógica) |
+| `perf` | Melhoria de performance |
+| `ci` | CI/CD e pipelines |
+| `build` | Sistema de build, Docker, Makefile |
+| `revert` | Reverter commit anterior |
+
+### Exemplos válidos
+
+```
+feat(cache): implementa make_cache_key com SHA-256
+fix(io): corrige parsing de datas inválidas no CSV
+test(transforms): adiciona casos de borda para by_date_range
+chore(deps): atualiza streamlit para 1.35
+refactor(pipeline): simplifica compose usando functools.reduce
+```
+
+### Exemplos inválidos (serão bloqueados)
+
+```
+update stuff          ← sem tipo
+Feat: nova função     ← tipo com maiúscula
+feat: .               ← descrição vazia
+fixed bug             ← sem tipo
+```
+
 ## Pre-commit Hooks
 
 | Hook | Quando roda | O que faz |
 |---|---|---|
+| `conventional-pre-commit` | commit-msg | Valida formato Conventional Commits |
 | `ruff` | commit | Linting, imports, complexidade ciclomática (max=10), naming |
 | `ruff-format` | commit | Formatação determinística |
 | `mypy` | commit | Type checking estrito (`--strict`) |
@@ -139,6 +183,41 @@ make docker-run          # sobe app no Docker
 
 Todos usam `python:3.11-slim` no Docker para paridade de ambiente.
 
+## Protocolo de Merge Entre Sprints (OBRIGATÓRIO)
+
+Ao final de cada sprint, o fluxo de integração é:
+
+1. **Cada branch de dev → `develop`** (via PR no GitHub, sem fast-forward)
+2. **`develop` → cada branch de dev** (para distribuir o código integrado de volta)
+
+### Regra crítica de commits em `develop`
+
+**Nunca commitar diretamente em `develop`.** Se surgir qualquer ajuste necessário durante o processo de merge (conflitos, correções, adaptações):
+
+1. Fazer a alteração na branch `frederico-barcelos`
+2. Commitar e fazer push de `frederico-barcelos`
+3. Abrir PR de `frederico-barcelos` → `develop`
+4. Só então continuar o merge das outras branches
+
+### Ordem de merge recomendada (menor → maior risco de conflito)
+
+```
+bernardo   → develop   (io/ — leitura CSV, isolado)
+pedro      → develop   (transforms/ — funções puras, isolado)
+dev/dev3   → develop   (llm/ — módulo próprio)
+frederico-barcelos → develop  (cache/ + pipeline/)
+diogo      → develop   (ui/ — mais dependências)
+```
+
+Após todos em `develop`:
+```
+develop → bernardo
+develop → pedro
+develop → dev/dev3
+develop → frederico-barcelos
+develop → diogo
+```
+
 ## O que NUNCA fazer
 
 - **Nunca** usar `for` ou `while` em `transforms/` ou `pipeline/`
@@ -147,6 +226,7 @@ Todos usam `python:3.11-slim` no Docker para paridade de ambiente.
 - **Nunca** commitar o arquivo CSV do dataset (está no .gitignore)
 - **Nunca** criar implementação sem escrever o teste antes (TDD)
 - **Nunca** fazer push direto para `main` (branch protegida)
+- **Nunca** commitar diretamente em `develop` — sempre via `frederico-barcelos` → PR → `develop`
 
 ## Ao Revisar Código Neste Projeto
 

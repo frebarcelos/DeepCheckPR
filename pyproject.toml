@@ -9,10 +9,12 @@ description = "GitHub PR Analysis Tool — Functional Programming Paradigm"
 requires-python = ">=3.11"
 dependencies = [
     "agno>=1.4",
-    "streamlit>=1.33",
+    "streamlit>=1.35",
     "plotly>=5.20",
+    "pandas>=2.2",
     "python-dotenv>=1.0",
     "groq>=0.9",
+    "streamlit-extras>=1.5.0",
 ]
 
 [project.optional-dependencies]
@@ -58,12 +60,9 @@ ignore = [
 ]
 
 [tool.ruff.lint.mccabe]
-# Complexidade ciclomática máxima por função.
-# Funções acima de 10 são difíceis de testar e entender.
 max-complexity = 10
 
 [tool.ruff.lint.per-file-ignores]
-# Testes têm regras mais relaxadas (fixtures, asserts longos, etc.)
 "tests/**" = ["N802", "N803", "S101", "PT011", "T20"]
 
 # ── Mypy: type checking estrito ─────────────────────────────────────────────
@@ -77,8 +76,6 @@ exclude = ["tests/"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-# --cov-fail-under NÃO está aqui — fica no pre-commit (pre-push)
-# para não bloquear execução local de testes durante desenvolvimento
 addopts = "--cov=src/pr_analyzer --cov-report=term-missing -q --no-header"
 markers = [
     "integration: testes que chamam APIs LLM externas (pular com -m 'not integration')",
@@ -89,15 +86,15 @@ markers = [
 [tool.coverage.run]
 source = ["src/pr_analyzer"]
 omit = [
-    "src/pr_analyzer/ui/*",    # UI Streamlit é testada manualmente
-    "src/pr_analyzer/llm/client.py",  # configuração de cliente externo
+    "src/pr_analyzer/ui/*",
+    "src/pr_analyzer/llm/client.py",
 ]
-branch = true  # mede cobertura de branches (if/else), não só linhas
+branch = true
 
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",
     "raise NotImplementedError",
-    "\\.\\.\\.",  # stubs com ...
+    "\\.\\.\\.",
 ]

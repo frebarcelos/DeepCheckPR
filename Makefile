@@ -4,6 +4,7 @@ setup:
 	pip install -e ".[dev]"
 	pre-commit install
 	pre-commit install --hook-type pre-push
+	pre-commit install --hook-type commit-msg
 
 run:
 	streamlit run src/pr_analyzer/ui/app.py
