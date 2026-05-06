@@ -1,4 +1,4 @@
-"""Funções puras de transformação: filters, mappers e reducers."""
+"""Pure transformation functions: filters, mappers, and reducers."""
 
 from pr_analyzer.transforms.filters import (
     by_date_range,
@@ -8,6 +8,7 @@ from pr_analyzer.transforms.filters import (
     with_min_size,
     with_non_empty_body,
 )
+from pr_analyzer.transforms.mappers import PRStats, compute_stats
 
 __all__ = (
     "by_state",
@@ -16,4 +17,6 @@ __all__ = (
     "with_non_empty_body",
     "with_min_size",
     "combine_filters",
+    "PRStats",
+    "compute_stats",
 )
