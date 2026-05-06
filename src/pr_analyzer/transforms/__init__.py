@@ -9,6 +9,7 @@ from pr_analyzer.transforms.filters import (
     with_non_empty_body,
 )
 from pr_analyzer.transforms.mappers import PRStats, compute_stats
+from pr_analyzer.transforms.reducers import count_by_language
 
 __all__ = (
     "by_state",
@@ -19,4 +20,5 @@ __all__ = (
     "combine_filters",
     "PRStats",
     "compute_stats",
+    "count_by_language",
 )
