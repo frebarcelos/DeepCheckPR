@@ -8,7 +8,7 @@ from typing import NamedTuple
 class PRRecord(NamedTuple):
     """Immutable pull request record normalized from the Kaggle CSV dataset."""
 
-    pr_id: int
+    pr_id: int | None
     repo_name: str
     language: str
     title: str
@@ -16,9 +16,9 @@ class PRRecord(NamedTuple):
     state: str
     created_at: str
     merged_at: str
-    additions: int
-    deletions: int
-    changed_files: int
+    additions: int | None
+    deletions: int | None
+    changed_files: int | None
 
 
 def _text(raw_row: Mapping[str, object], field: str) -> str:
@@ -26,11 +26,11 @@ def _text(raw_row: Mapping[str, object], field: str) -> str:
     return "" if value is None else str(value).strip()
 
 
-def _integer(raw_row: Mapping[str, object], field: str) -> int:
+def _integer(raw_row: Mapping[str, object], field: str) -> int | None:
     try:
         return int(_text(raw_row, field))
     except ValueError:
-        return 0
+        return None
 
 
 def read_csv_lazy(filepath: str) -> Generator[dict[str, str], None, None]:
