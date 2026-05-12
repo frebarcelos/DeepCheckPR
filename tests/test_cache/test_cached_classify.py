@@ -1,8 +1,6 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
-
 from pr_analyzer.cache.memo import cached_classify
 
 
