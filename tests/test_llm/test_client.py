@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True)  # type: ignore[misc]
 def _patch_agno() -> object:
     """Impede que o módulo agno seja chamado de verdade em qualquer teste."""
     with (

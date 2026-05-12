@@ -63,7 +63,8 @@ ignore = [
 max-complexity = 10
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["N802", "N803", "S101", "PT011", "T20"]
+"tests/**" = ["N802", "N803", "S101", "PT011", "T20", "E731"]
+"scripts/**" = ["T20", "N802"]  # print é intencional em CLIs; N802 para visitors AST
 
 # ── Mypy: type checking estrito ─────────────────────────────────────────────
 [tool.mypy]

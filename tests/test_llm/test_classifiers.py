@@ -17,7 +17,7 @@ from pr_analyzer.llm.classifiers import (
 from pr_analyzer.llm.client import create_groq_client
 
 
-@pytest.fixture
+@pytest.fixture()  # type: ignore[misc]
 def mock_client() -> MagicMock:
     return MagicMock()
 
