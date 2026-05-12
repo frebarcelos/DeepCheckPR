@@ -1,0 +1,25 @@
+# Dados grandes — não entram no build context
+data/
+
+# Ambiente virtual e cache Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Git e CI
+.git/
+.github/
+
+# Arquivos de ambiente local
+.env
+*.local
+
+# Docs e scripts auxiliares
+*.md
+scripts/

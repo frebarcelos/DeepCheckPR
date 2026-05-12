@@ -65,7 +65,7 @@ def classificar_tipo_projeto(
     try:
         response = cliente.run(prompt)
         data = json.loads(response.content)
-        result = data.get("tipo_projeto", "").lower()
+        result = str(data.get("tipo_projeto", "")).lower()
         if result in TIPOS_PROJETO:
             return result
     except Exception:
@@ -97,7 +97,7 @@ def classificar_natureza_contribuicao(
     try:
         response = cliente.run(prompt)
         data = json.loads(response.content)
-        result = data.get("natureza", "").lower()
+        result = str(data.get("natureza", "")).lower()
         if result in NATUREZAS_CONTRIBUICAO:
             return result
     except Exception:
