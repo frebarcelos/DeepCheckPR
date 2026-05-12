@@ -1,4 +1,38 @@
-from pr_analyzer.pipeline.builder import build_pipeline, compose, pipe
+from pr_analyzer.io.csv_reader import PRRecord
+from pr_analyzer.pipeline.builder import (
+    EnrichedPR,
+    build_pipeline,
+    compose,
+    enrich_pipeline,
+    pipe,
+    stats_pipeline,
+)
+
+
+def _make_pr(pr_id: int = 1, language: str = "python") -> PRRecord:
+    return PRRecord(
+        pr_id=pr_id,
+        repo_name="org/repo",
+        language=language,
+        title="Fix bug",
+        body="Some body text.",
+        state="merged",
+        created_at="2024-01-01",
+        merged_at="2024-01-02",
+        additions=5,
+        deletions=2,
+        changed_files=1,
+    )
+
+
+def _classify(pr: PRRecord) -> EnrichedPR:
+    return EnrichedPR(
+        pr=pr,
+        project_type="biblioteca",
+        contribution_nature="bug fix",
+        description_clarity="boa",
+    )
+
 
 # ── TASK-25: compose() ────────────────────────────────────────────────────────
 
@@ -124,3 +158,61 @@ def test_build_pipeline_source_vazio() -> None:
     is_even = lambda x: x % 2 == 0
     result = list(build_pipeline([], filters=(is_even,), mappers=()))
     assert result == []
+
+
+# ── enrich_pipeline ───────────────────────────────────────────────────────────
+
+
+def test_enrich_pipeline_applies_classify_fn() -> None:
+    prs = [_make_pr(1), _make_pr(2)]
+    result = list(enrich_pipeline(prs, _classify))
+    assert len(result) == 2
+    assert all(r.project_type == "biblioteca" for r in result)
+
+
+def test_enrich_pipeline_preserves_original_pr() -> None:
+    pr = _make_pr(42)
+    result = list(enrich_pipeline([pr], _classify))
+    assert result[0].pr == pr
+
+
+def test_enrich_pipeline_empty_source() -> None:
+    assert list(enrich_pipeline([], _classify)) == []
+
+
+def test_enrich_pipeline_is_lazy() -> None:
+    calls: list[int] = []
+
+    def counting_classify(pr: PRRecord) -> EnrichedPR:
+        calls.append(1)
+        return _classify(pr)
+
+    pipeline = enrich_pipeline(iter([_make_pr(), _make_pr()]), counting_classify)
+    assert not isinstance(pipeline, list | tuple)
+    next(iter(pipeline))
+    assert len(calls) == 1
+
+
+# ── stats_pipeline ────────────────────────────────────────────────────────────
+
+
+def test_stats_pipeline_returns_stats_for_each_pr() -> None:
+    prs = [_make_pr(1), _make_pr(2), _make_pr(3)]
+    result = list(stats_pipeline(prs))
+    assert len(result) == 3
+
+
+def test_stats_pipeline_computes_correct_total_changes() -> None:
+    pr = _make_pr()
+    result = list(stats_pipeline([pr]))
+    assert result[0].total_changes == 7  # additions=5 + deletions=2 from _make_pr()
+
+
+def test_stats_pipeline_empty_source() -> None:
+    assert list(stats_pipeline([])) == []
+
+
+def test_stats_pipeline_is_lazy() -> None:
+    pipeline = stats_pipeline(iter([_make_pr(), _make_pr()]))
+    assert not isinstance(pipeline, list | tuple)
+    next(iter(pipeline))
