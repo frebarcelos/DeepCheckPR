@@ -5,6 +5,9 @@ from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
 
+from pr_analyzer.io.csv_reader import PRRecord
+from pr_analyzer.pipeline.builder import EnrichedPR
+
 _SEP = "\x00"
 
 
@@ -43,3 +46,32 @@ def cached_classify(
         return result
 
     return wrapper
+
+
+def make_enriched_classifier(
+    classify_type_fn: Callable[..., str],
+    classify_nature_fn: Callable[..., str],
+    classify_clarity_fn: Callable[..., str],
+    cache_path: Path | None = None,
+    cache_size: int = 1024,
+) -> Callable[[PRRecord], EnrichedPR]:
+    """Envolve três classificadores com cache e retorna uma função para enrich_pipeline."""
+    cached_type = cached_classify(
+        classify_type_fn, cache_size=cache_size, cache_path=cache_path
+    )
+    cached_nature = cached_classify(
+        classify_nature_fn, cache_size=cache_size, cache_path=cache_path
+    )
+    cached_clarity = cached_classify(
+        classify_clarity_fn, cache_size=cache_size, cache_path=cache_path
+    )
+
+    def _classify(pr: PRRecord) -> EnrichedPR:
+        return EnrichedPR(
+            pr=pr,
+            project_type=cached_type(pr.repo_name, pr.title),
+            contribution_nature=cached_nature(pr.title, pr.body[:300]),
+            description_clarity=cached_clarity(pr.body[:500]),
+        )
+
+    return _classify
