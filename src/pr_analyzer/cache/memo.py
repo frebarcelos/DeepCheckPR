@@ -1,9 +1,9 @@
 import hashlib
 import json
 from collections import OrderedDict
+from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
-from typing import Callable
 
 _SEP = "\x00"
 
