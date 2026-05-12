@@ -172,16 +172,24 @@ fixed bug             ← sem tipo
 
 ## Ambiente de Desenvolvimento
 
+**Docker é o ambiente primário.** Instale apenas o necessário no host:
+
 ```bash
 cp .env.example .env     # configure GROQ_API_KEY e ANTHROPIC_API_KEY
-make setup               # instala deps + hooks pre-commit e pre-push
-make run                 # Streamlit em localhost:8501
-make test                # testes unitários (sem integração)
-make docker-build        # constrói imagem Docker
-make docker-run          # sobe app no Docker
+make docker-build        # constrói imagem Docker (uma vez)
+make hooks               # instala pre-commit + git hooks no host (uma vez, mínimo)
+make docker-run          # Streamlit em localhost:8501
+make docker-test         # testes unitários dentro do Docker
 ```
 
-Todos usam `python:3.11-slim` no Docker para paridade de ambiente.
+Para desenvolvimento sem Docker (alternativo):
+```bash
+make setup               # instala deps completas + hooks
+make run                 # Streamlit local
+make test                # testes unitários locais
+```
+
+Imagem base: `python:3.11-slim`. Hooks de push rodam via Docker automaticamente.
 
 ## Protocolo de Merge Entre Sprints (OBRIGATÓRIO)
 
@@ -218,6 +226,15 @@ develop → frederico-barcelos
 develop → diogo
 ```
 
+## Regras de Commit e Push (OBRIGATÓRIO)
+
+### Para commits
+- **Nunca commitar se os pre-commit hooks não estiverem instalados.** Verifique com `ls .git/hooks/pre-commit` — se o arquivo não existir (apenas `.sample`), execute `make setup` antes de qualquer commit.
+- **Nunca commitar se o pre-commit não passar.** Qualquer falha em ruff, mypy, check-paradigm ou conventional-pre-commit bloqueia o commit até ser corrigida.
+
+### Para push
+- **Push é sempre feito pelo usuário, nunca pela IA.** O assistente pode criar commits locais, mas `git push` é responsabilidade exclusiva do desenvolvedor.
+
 ## O que NUNCA fazer
 
 - **Nunca** usar `for` ou `while` em `transforms/` ou `pipeline/`
@@ -227,6 +244,8 @@ develop → diogo
 - **Nunca** criar implementação sem escrever o teste antes (TDD)
 - **Nunca** fazer push direto para `main` (branch protegida)
 - **Nunca** commitar diretamente em `develop` — sempre via `frederico-barcelos` → PR → `develop`
+- **Nunca** commitar com hooks inativos ou com pre-commit falhando
+- **Nunca** executar `git push` — push é sempre feito pelo usuário
 
 ## Ao Revisar Código Neste Projeto
 

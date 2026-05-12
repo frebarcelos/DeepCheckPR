@@ -23,7 +23,7 @@ def compute_stats(pr: PRRecord) -> PRStats:
     body_char_count = len(pr.body)
     body_word_count = len(pr.body.split())
 
-    total_changes = pr.additions + pr.deletions
+    total_changes = (pr.additions or 0) + (pr.deletions or 0)
     is_merged = bool(pr.merged_at)
 
     return PRStats(
