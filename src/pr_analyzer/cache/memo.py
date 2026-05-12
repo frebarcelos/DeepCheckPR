@@ -48,6 +48,12 @@ def cached_classify(
     return wrapper
 
 
+def _derive_cache_path(base: Path | None, tag: str) -> Path | None:
+    if base is None:
+        return None
+    return base.with_name(f"{base.stem}_{tag}{base.suffix}")
+
+
 def make_enriched_classifier(
     classify_type_fn: Callable[..., str],
     classify_nature_fn: Callable[..., str],
@@ -57,13 +63,19 @@ def make_enriched_classifier(
 ) -> Callable[[PRRecord], EnrichedPR]:
     """Envolve três classificadores com cache e retorna uma função para enrich_pipeline."""
     cached_type = cached_classify(
-        classify_type_fn, cache_size=cache_size, cache_path=cache_path
+        classify_type_fn,
+        cache_size=cache_size,
+        cache_path=_derive_cache_path(cache_path, "type"),
     )
     cached_nature = cached_classify(
-        classify_nature_fn, cache_size=cache_size, cache_path=cache_path
+        classify_nature_fn,
+        cache_size=cache_size,
+        cache_path=_derive_cache_path(cache_path, "nature"),
     )
     cached_clarity = cached_classify(
-        classify_clarity_fn, cache_size=cache_size, cache_path=cache_path
+        classify_clarity_fn,
+        cache_size=cache_size,
+        cache_path=_derive_cache_path(cache_path, "clarity"),
     )
 
     def _classify(pr: PRRecord) -> EnrichedPR:

@@ -3,7 +3,7 @@
 ## Identidade do Projeto
 
 Ferramenta de análise de Pull Requests do GitHub usando **paradigma funcional** em Python 3.11+.
-Disciplina AL0337 — Linguagens de Programação, UNIPAMPA, Sprint 2.
+Disciplina AL0337 — Linguagens de Programação, UNIPAMPA, Sprint 3 em andamento.
 5 desenvolvedores (dev1–dev5), TDD obrigatório, pre-commits rigorosos.
 
 ## Arquitetura de Módulos
@@ -176,10 +176,11 @@ fixed bug             ← sem tipo
 
 ```bash
 cp .env.example .env     # configure GROQ_API_KEY e ANTHROPIC_API_KEY
-make docker-build        # constrói imagem Docker (uma vez)
+make docker-build        # constrói imagem Docker (uma vez; NUNCA use sudo)
 make hooks               # instala pre-commit + git hooks no host (uma vez, mínimo)
 make docker-run          # Streamlit em localhost:8501
 make docker-test         # testes unitários dentro do Docker
+make pipeline DATASET=data/arquivo.json OUTPUT=out.json LIMIT=20  # pipeline via CLI
 ```
 
 Para desenvolvimento sem Docker (alternativo):
@@ -190,6 +191,37 @@ make test                # testes unitários locais
 ```
 
 Imagem base: `python:3.11-slim`. Hooks de push rodam via Docker automaticamente.
+
+### Backend LLM — Groq vs Ollama
+
+Por padrão o projeto usa Groq (requer `GROQ_API_KEY`). Para usar Ollama local (sem API key):
+
+```bash
+# No .env:
+LLM_BACKEND=ollama
+OLLAMA_HOST=http://host.docker.internal:11434   # dentro do Docker no Linux
+LLM_MODEL=llama3                                # modelo instalado via ollama pull
+
+# No host (uma vez):
+# 1. Instale em https://ollama.com
+# 2. ollama pull llama3
+# 3. Faça o Ollama escutar em todas as interfaces (necessário para o Docker alcançar):
+sudo tee /etc/systemd/system/ollama.service.d/override.conf << 'EOF'
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0"
+EOF
+sudo systemctl daemon-reload && sudo systemctl restart ollama
+```
+
+A UI detecta automaticamente o backend configurado no `.env` e exibe o seletor **BACKEND LLM** na sidebar.
+
+### Dataset local na UI
+
+A sidebar exibe automaticamente os arquivos encontrados em `data/`:
+- Arquivos CSV/JSON no nível raiz
+- Arquivos do archive `data/archive/` (formato mined-comments por linguagem)
+
+Para os archives (6–11 GB por linguagem), o carregamento usa streaming via `ijson` e retorna uma amostra de 2.000 comentários. A classificação `nature`/`clarity` nessa amostra é heurística (palavras-chave + tamanho do corpo) — a integração com LLM real é tarefa futura da Sprint 4 (dev4 + dev5).
 
 ## Protocolo de Merge Entre Sprints (OBRIGATÓRIO)
 
@@ -240,7 +272,9 @@ develop → diogo
 - **Nunca** usar `for` ou `while` em `transforms/` ou `pipeline/`
 - **Nunca** chamar `.append()`, `.update()` ou qualquer método mutante em módulos puros
 - **Nunca** colocar `open()` ou `print()` fora de `io/` ou `ui/`
-- **Nunca** commitar o arquivo CSV do dataset (está no .gitignore)
+- **Nunca** commitar o arquivo CSV ou os archives JSON de `data/` (estão no .gitignore)
+- **Nunca** deletar `.dockerignore` — ele exclui os 28 GB de `data/archive/` do build context
+- **Nunca** usar `sudo make docker-*` — o grupo `docker` já tem permissão e sudo causa conflitos de cgroup irrecuperáveis
 - **Nunca** criar implementação sem escrever o teste antes (TDD)
 - **Nunca** fazer push direto para `main` (branch protegida)
 - **Nunca** commitar diretamente em `develop` — sempre via `frederico-barcelos` → PR → `develop`

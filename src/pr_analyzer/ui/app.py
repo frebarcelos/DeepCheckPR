@@ -13,6 +13,8 @@ All business logic, UI components, and data transforms live in their
 respective modules under components/ and utils/.
 """
 
+import os
+
 import streamlit as st
 
 # ── Page config (must be the very first Streamlit call) ───────────────────────
@@ -43,6 +45,10 @@ if "fname" not in st.session_state:
     st.session_state.fname = ""
 if "df" not in st.session_state:
     st.session_state.df = get_mock_data()
+if "llm_backend" not in st.session_state:
+    st.session_state.llm_backend = os.environ.get("LLM_BACKEND", "groq")
+if "ollama_model" not in st.session_state:
+    st.session_state.ollama_model = os.environ.get("LLM_MODEL", "llama3")
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 sel_lang, sel_nature, cleaning, llm_tag, metrics = render_sidebar()
