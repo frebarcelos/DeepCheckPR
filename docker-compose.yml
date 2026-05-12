@@ -9,6 +9,8 @@ services:
       - ./cache:/app/cache  # cache LLM persistido entre sessões
     env_file:
       - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # acesso ao Ollama no host (Linux)
     command: streamlit run src/pr_analyzer/ui/app.py --server.address=0.0.0.0
 
   test:
