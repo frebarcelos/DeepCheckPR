@@ -40,7 +40,7 @@ def test_create_groq_client_usa_modelo_padrao_sem_llm_model(
 
         create_groq_client()
 
-        args, kwargs = mock_groq.call_args
+        _args, kwargs = mock_groq.call_args
         assert kwargs.get("id") == "llama3-8b-8192"
 
 

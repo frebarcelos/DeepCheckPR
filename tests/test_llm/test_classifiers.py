@@ -1,17 +1,20 @@
 """Testes para src/pr_analyzer/llm/classifiers.py — TASK-09."""
 
+import os
 from unittest.mock import MagicMock
 
 import pytest
+from dotenv import load_dotenv
 
 from pr_analyzer.llm.classifiers import (
-    CONTRIBUTION_NATURES,
-    DESCRIPTION_CLARITY_LEVELS,
-    PROJECT_TYPES,
-    classify_contribution_nature,
-    classify_description_clarity,
-    classify_project_type,
+    NATUREZAS_CONTRIBUICAO,
+    NIVEIS_CLAREZA_DESCRICAO,
+    TIPOS_PROJETO,
+    avaliar_clareza_descricao,
+    classificar_natureza_contribuicao,
+    classificar_tipo_projeto,
 )
+from pr_analyzer.llm.client import create_groq_client
 
 
 @pytest.fixture()  # type: ignore[misc]
@@ -22,85 +25,121 @@ def mock_client() -> MagicMock:
 # ── frozensets ────────────────────────────────────────────────────────────────
 
 
-def test_project_types_é_frozenset() -> None:
-    assert isinstance(PROJECT_TYPES, frozenset)
+def test_tipos_projeto_é_frozenset() -> None:
+    assert isinstance(TIPOS_PROJETO, frozenset)
 
 
-def test_contribution_natures_é_frozenset() -> None:
-    assert isinstance(CONTRIBUTION_NATURES, frozenset)
+def test_naturezas_contribuicao_é_frozenset() -> None:
+    assert isinstance(NATUREZAS_CONTRIBUICAO, frozenset)
 
 
-def test_description_clarity_levels_é_frozenset() -> None:
-    assert isinstance(DESCRIPTION_CLARITY_LEVELS, frozenset)
+def test_niveis_clareza_descricao_é_frozenset() -> None:
+    assert isinstance(NIVEIS_CLAREZA_DESCRICAO, frozenset)
 
 
-def test_project_types_não_está_vazio() -> None:
-    assert len(PROJECT_TYPES) > 0
+def test_tipos_projeto_nao_esta_vazio() -> None:
+    assert len(TIPOS_PROJETO) > 0
 
 
-def test_contribution_natures_não_está_vazio() -> None:
-    assert len(CONTRIBUTION_NATURES) > 0
+def test_naturezas_contribuicao_nao_esta_vazio() -> None:
+    assert len(NATUREZAS_CONTRIBUICAO) > 0
 
 
-def test_description_clarity_levels_não_está_vazio() -> None:
-    assert len(DESCRIPTION_CLARITY_LEVELS) > 0
+def test_niveis_clareza_descricao_nao_esta_vazio() -> None:
+    assert len(NIVEIS_CLAREZA_DESCRICAO) > 0
 
 
-# ── classify_project_type ─────────────────────────────────────────────────────
+# ── classificar_tipo_projeto ─────────────────────────────────────────────────────
 
 
-def test_classify_project_type_retorna_valor_válido(mock_client: MagicMock) -> None:
-    result = classify_project_type("my-repo", ["fix bug", "add feature"], mock_client)
-    assert result in PROJECT_TYPES
+def test_classificar_tipo_projeto_parse_json(mock_client: MagicMock) -> None:
+    mock_client.run.return_value.content = '{"tipo_projeto": "biblioteca"}'
+    result = classificar_tipo_projeto("repo", ["title"], mock_client)
+    assert result == "biblioteca"
+    # Garantir que a palavra JSON está no prompt
+    assert "JSON" in mock_client.run.call_args[0][0].upper()
 
 
-def test_classify_project_type_retorna_string(mock_client: MagicMock) -> None:
-    result = classify_project_type("repo", ["title"], mock_client)
-    assert isinstance(result, str)
+def test_classificar_tipo_projeto_fallback_invalid_json(mock_client: MagicMock) -> None:
+    mock_client.run.return_value.content = 'invalid json'
+    result = classificar_tipo_projeto("repo", ["title"], mock_client)
+    assert result == "outro"
 
 
-def test_classify_project_type_aceita_lista_vazia(mock_client: MagicMock) -> None:
-    result = classify_project_type("repo", [], mock_client)
-    assert result in PROJECT_TYPES
+def test_classificar_tipo_projeto_fallback_invalid_value(mock_client: MagicMock) -> None:
+    mock_client.run.return_value.content = '{"tipo_projeto": "valor_invalido"}'
+    result = classificar_tipo_projeto("repo", ["title"], mock_client)
+    assert result == "outro"
 
 
-# ── classify_contribution_nature ──────────────────────────────────────────────
+@pytest.mark.integration
+def test_classificar_tipo_projeto_integration() -> None:
+    load_dotenv()
+    if "GROQ_API_KEY" not in os.environ:
+        pytest.skip("Requer GROQ_API_KEY no .env")
+    client = create_groq_client()
+    result = classificar_tipo_projeto("django/django", ["fix admin bug", "add feature"], client)
+    assert result in TIPOS_PROJETO
 
 
-def test_classify_contribution_nature_retorna_valor_válido(
-    mock_client: MagicMock,
-) -> None:
-    result = classify_contribution_nature(
-        "Fix memory leak", "Detailed description here.", mock_client
-    )
-    assert result in CONTRIBUTION_NATURES
+# ── classificar_natureza_contribuicao ──────────────────────────────────────────────
 
 
-def test_classify_contribution_nature_retorna_string(mock_client: MagicMock) -> None:
-    result = classify_contribution_nature("title", "body", mock_client)
-    assert isinstance(result, str)
+def test_classificar_natureza_contribuicao_parse_json(mock_client: MagicMock) -> None:
+    mock_client.run.return_value.content = '{"natureza": "bug fix"}'
+    result = classificar_natureza_contribuicao("Fix memory leak", "Body content", mock_client)
+    assert result == "bug fix"
+    prompt = mock_client.run.call_args[0][0]
+    assert "JSON" in prompt.upper()
 
 
-def test_classify_contribution_nature_aceita_body_vazio(mock_client: MagicMock) -> None:
-    result = classify_contribution_nature("title", "", mock_client)
-    assert result in CONTRIBUTION_NATURES
+def test_classificar_natureza_contribuicao_truncates_body_to_300(mock_client: MagicMock) -> None:
+    mock_client.run.return_value.content = '{"natureza": "outro"}'
+    long_body = "A" * 500
+    classificar_natureza_contribuicao("title", long_body, mock_client)
+    prompt = mock_client.run.call_args[0][0]
+    assert len(long_body) > 300
+    assert "A" * 300 in prompt
+    assert "A" * 301 not in prompt
 
 
-# ── classify_description_clarity ──────────────────────────────────────────────
+def test_classificar_natureza_contribuicao_fallback_invalid_json(mock_client: MagicMock) -> None:
+    mock_client.run.return_value.content = 'invalid'
+    result = classificar_natureza_contribuicao("title", "body", mock_client)
+    assert result == "outro"
 
 
-def test_classify_description_clarity_retorna_valor_válido(
-    mock_client: MagicMock,
-) -> None:
-    result = classify_description_clarity("Some PR body text with detail.", mock_client)
-    assert result in DESCRIPTION_CLARITY_LEVELS
+def test_classificar_natureza_contribuicao_fallback_invalid_value(mock_client: MagicMock) -> None:
+    mock_client.run.return_value.content = '{"natureza": "invalido"}'
+    result = classificar_natureza_contribuicao("title", "body", mock_client)
+    assert result == "outro"
 
 
-def test_classify_description_clarity_retorna_string(mock_client: MagicMock) -> None:
-    result = classify_description_clarity("body", mock_client)
-    assert isinstance(result, str)
+# ── avaliar_clareza_descricao ──────────────────────────────────────────────
 
 
-def test_classify_description_clarity_aceita_body_vazio(mock_client: MagicMock) -> None:
-    result = classify_description_clarity("", mock_client)
-    assert result in DESCRIPTION_CLARITY_LEVELS
+def test_avaliar_clareza_descricao_short_circuit_empty(mock_client: MagicMock) -> None:
+    result = avaliar_clareza_descricao("   \n", mock_client)
+    assert result == "insuficiente"
+    mock_client.run.assert_not_called()
+
+
+def test_avaliar_clareza_descricao_truncates_body_to_500(mock_client: MagicMock) -> None:
+    mock_client.run.return_value.content = "boa"
+    long_body = "B" * 600
+    avaliar_clareza_descricao(long_body, mock_client)
+    prompt = mock_client.run.call_args[0][0]
+    assert "B" * 500 in prompt
+    assert "B" * 501 not in prompt
+
+
+def test_avaliar_clareza_descricao_valid_return(mock_client: MagicMock) -> None:
+    mock_client.run.return_value.content = "excelente"
+    result = avaliar_clareza_descricao("Good body", mock_client)
+    assert result == "excelente"
+
+
+def test_avaliar_clareza_descricao_fallback_invalid(mock_client: MagicMock) -> None:
+    mock_client.run.return_value.content = "muito bom (invalido)"
+    result = avaliar_clareza_descricao("Good body", mock_client)
+    assert result == "insuficiente"
