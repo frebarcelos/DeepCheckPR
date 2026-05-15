@@ -3,7 +3,14 @@ from types import GeneratorType
 
 import pytest
 
-from pr_analyzer.io.csv_reader import PRRecord, apply_schema, read_csv_lazy, read_prs
+from pr_analyzer.io.csv_reader import (
+    PRRecord,
+    apply_schema,
+    detect_schema,
+    read_csv_lazy,
+    read_prs,
+    schema_adapter,
+)
 from pr_analyzer.pipeline.builder import build_pipeline
 
 
@@ -84,6 +91,102 @@ def test_apply_schema_preserves_legitimate_zero_values() -> None:
     assert record.additions == 0
     assert record.deletions == 0
     assert record.changed_files == 0
+
+
+def test_detect_schema_identifies_canonical_header() -> None:
+    header = (
+        "pr_id",
+        "repo_name",
+        "language",
+        "title",
+        "body",
+        "state",
+        "created_at",
+        "merged_at",
+        "additions",
+        "deletions",
+        "changed_files",
+    )
+
+    assert detect_schema(header) == "canonical"
+
+
+def test_detect_schema_identifies_github_export_header() -> None:
+    header = (
+        "number",
+        "repository",
+        "primary_language",
+        "title",
+        "description",
+        "status",
+        "created",
+        "merged",
+        "additions",
+        "deletions",
+        "files_changed",
+    )
+
+    assert detect_schema(header) == "github_export"
+
+
+def test_schema_adapter_normalizes_github_export_row() -> None:
+    adapter = schema_adapter("github_export")
+
+    assert adapter(
+        {
+            "number": "7",
+            "repository": "owner/repo",
+            "primary_language": "Python",
+            "title": "Nova tela",
+            "description": "Implementa a tela inicial",
+            "status": "OPEN",
+            "created": "2026-05-10T12:00:00Z",
+            "merged": "",
+            "additions": "12",
+            "deletions": "3",
+            "files_changed": "2",
+        }
+    ) == {
+        "pr_id": "7",
+        "repo_name": "owner/repo",
+        "language": "Python",
+        "title": "Nova tela",
+        "body": "Implementa a tela inicial",
+        "state": "OPEN",
+        "created_at": "2026-05-10T12:00:00Z",
+        "merged_at": "",
+        "additions": "12",
+        "deletions": "3",
+        "changed_files": "2",
+    }
+
+
+def test_schema_adapter_rejects_unknown_schema() -> None:
+    with pytest.raises(ValueError, match="schema desconhecido"):
+        schema_adapter("inexistente")
+
+
+def test_read_prs_supports_latin_1_csv(tmp_path: Path) -> None:
+    csv_file = tmp_path / "prs_latin1.csv"
+    csv_file.write_text(
+        "number,repository,primary_language,title,description,status,created,merged,additions,deletions,files_changed\n"
+        "8,owner/repo,Python,Correção,Descrição com acento,open,2026-05-03T10:00:00Z,,4,1,1\n",
+        encoding="latin-1",
+    )
+
+    assert next(read_prs(str(csv_file), encoding="latin-1")) == PRRecord(
+        pr_id=8,
+        repo_name="owner/repo",
+        language="python",
+        title="Correção",
+        body="Descrição com acento",
+        state="open",
+        created_at="2026-05-03T10:00:00Z",
+        merged_at="",
+        additions=4,
+        deletions=1,
+        changed_files=1,
+    )
 
 
 def test_read_prs_returns_generator_of_pr_records(tmp_path: Path) -> None:
