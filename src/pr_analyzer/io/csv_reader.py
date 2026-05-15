@@ -21,6 +21,9 @@ CAMPOS_CANONICOS = (
     "changed_files",
 )
 
+CAMPOS_OBRIGATORIOS = ("pr_id", "repo_name", "language", "title", "state")
+CAMPOS_INTEIROS = ("pr_id", "additions", "deletions", "changed_files")
+
 MAPEAMENTO_CANONICO = tuple((campo, campo) for campo in CAMPOS_CANONICOS)
 MAPEAMENTO_GITHUB_EXPORT = (
     ("pr_id", "number"),
@@ -111,6 +114,15 @@ def schema_adapter(
     return lambda row: {target: row.get(source, "") for target, source in mapping}
 
 
+def is_valid_row(row: Mapping[str, object]) -> bool:
+    """Valida campos obrigatorios e inteiros antes da normalizacao final."""
+    has_required_text = all(_text(row, field) for field in CAMPOS_OBRIGATORIOS)
+    has_valid_integers = all(
+        _is_integer_text(_text(row, field)) for field in CAMPOS_INTEIROS
+    )
+    return has_required_text and has_valid_integers
+
+
 def read_csv_lazy(
     filepath: FilePath,
     encoding: str = "utf-8",
@@ -151,5 +163,8 @@ def read_prs(
     filepath: FilePath,
     encoding: str = "utf-8",
 ) -> Generator[PRRecord, None, None]:
-    """Produz PRRecords normalizados a partir de um CSV."""
-    return (apply_schema(row) for row in _read_adapted_rows(filepath, encoding))
+    """Produz PRRecords validos e normalizados a partir de um CSV."""
+    return (
+        apply_schema(row)
+        for row in filter(is_valid_row, _read_adapted_rows(filepath, encoding))
+    )

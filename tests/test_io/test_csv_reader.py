@@ -7,6 +7,7 @@ from pr_analyzer.io.csv_reader import (
     PRRecord,
     apply_schema,
     detect_schema,
+    is_valid_row,
     read_csv_lazy,
     read_prs,
     schema_adapter,
@@ -164,6 +165,63 @@ def test_schema_adapter_normalizes_github_export_row() -> None:
 def test_schema_adapter_rejects_unknown_schema() -> None:
     with pytest.raises(ValueError, match="schema desconhecido"):
         schema_adapter("inexistente")
+
+
+def test_is_valid_row_rejects_missing_required_field() -> None:
+    assert not is_valid_row(
+        {
+            "pr_id": "1",
+            "repo_name": "",
+            "language": "Python",
+            "title": "Sem repo",
+            "state": "open",
+            "additions": "1",
+            "deletions": "0",
+            "changed_files": "1",
+        }
+    )
+
+
+def test_is_valid_row_rejects_invalid_integer_field() -> None:
+    assert not is_valid_row(
+        {
+            "pr_id": "abc",
+            "repo_name": "owner/repo",
+            "language": "Python",
+            "title": "Inteiro invalido",
+            "state": "open",
+            "additions": "1",
+            "deletions": "0",
+            "changed_files": "1",
+        }
+    )
+
+
+def test_read_prs_filters_malformed_rows(tmp_path: Path) -> None:
+    csv_file = tmp_path / "prs.csv"
+    csv_file.write_text(
+        "pr_id,repo_name,language,title,body,state,created_at,merged_at,additions,deletions,changed_files\n"
+        "1,owner/repo,Python,Valido,Body,open,2026-05-01T10:00:00Z,,5,1,2\n"
+        "abc,owner/repo,Python,Invalido,Body,open,2026-05-01T10:00:00Z,,5,1,2\n"
+        "3,,Python,Sem repo,Body,open,2026-05-01T10:00:00Z,,5,1,2\n",
+        encoding="utf-8",
+    )
+
+    assert list(read_prs(str(csv_file))) == [
+        PRRecord(
+            pr_id=1,
+            repo_name="owner/repo",
+            language="python",
+            title="Valido",
+            body="Body",
+            state="open",
+            created_at="2026-05-01T10:00:00Z",
+            merged_at="",
+            additions=5,
+            deletions=1,
+            changed_files=2,
+        )
+    ]
 
 
 def test_read_prs_supports_latin_1_csv(tmp_path: Path) -> None:
