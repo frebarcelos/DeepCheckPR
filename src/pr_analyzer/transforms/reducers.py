@@ -55,6 +55,18 @@ def count_by_description_clarity(enriched_prs: Iterable[EnrichedPR]) -> dict[str
     return count_by_field("description_clarity")(enriched_prs)
 
 
+def group_by_repo(prs: Iterable[PRRecord]) -> dict[str, list[PRRecord]]:
+    """
+    Groups PRs by repository name using a pure reduction.
+    Returns a dictionary mapping repository names to lists of PRRecords.
+    """
+    return reduce(
+        lambda acc, pr: acc | {pr.repo_name: [*acc.get(pr.repo_name, []), pr]},
+        prs,
+        {},
+    )
+
+
 def accumulate_stats(stats: Iterable[PRStats]) -> dict[str, int]:
     """
     Accumulates totals and count for a collection of PRStats in a single pass.
