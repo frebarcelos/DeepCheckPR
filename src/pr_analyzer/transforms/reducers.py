@@ -1,10 +1,29 @@
 """Pure transformation functions for aggregating PR data using reductions."""
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from functools import reduce
+from typing import Any
 
 from pr_analyzer.io.csv_reader import PRRecord
 from pr_analyzer.transforms.mappers import PRStats
+
+
+@dataclass
+class EnrichedPR:
+    pr: PRRecord
+    project_type: str
+    contribution_nature: str
+    description_clarity: str
+
+
+def count_by_field(field: str) -> Callable[[Iterable[Any]], dict[str, int]]:
+    return lambda items: reduce(
+        lambda acc, item: acc
+        | {getattr(item, field): acc.get(getattr(item, field), 0) + 1},
+        items,
+        {},
+    )
 
 
 def count_by_language(prs: Iterable[PRRecord]) -> dict[str, int]:
@@ -12,11 +31,14 @@ def count_by_language(prs: Iterable[PRRecord]) -> dict[str, int]:
     Counts the number of PRs per language using a pure reduction.
     Returns a dictionary mapping language names to counts.
     """
-    return reduce(
-        lambda acc, pr: acc | {pr.language: acc.get(pr.language, 0) + 1},
-        prs,
-        {},
-    )
+    return count_by_field("language")(prs)
+
+
+def count_by_project_type(enriched_prs: Iterable[EnrichedPR]) -> dict[str, int]:
+    """
+    Counts the number of PRs per project type.
+    """
+    return count_by_field("project_type")(enriched_prs)
 
 
 def accumulate_stats(stats: Iterable[PRStats]) -> dict[str, int]:

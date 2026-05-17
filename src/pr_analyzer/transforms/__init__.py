@@ -10,9 +10,12 @@ from pr_analyzer.transforms.filters import (
 )
 from pr_analyzer.transforms.mappers import PRStats, compute_stats
 from pr_analyzer.transforms.reducers import (
+    EnrichedPR,
     accumulate_stats,
     aggregate_stats,
+    count_by_field,
     count_by_language,
+    count_by_project_type,
 )
 
 __all__ = (
@@ -25,6 +28,9 @@ __all__ = (
     "PRStats",
     "compute_stats",
     "count_by_language",
+    "count_by_field",
+    "count_by_project_type",
+    "EnrichedPR",
     "accumulate_stats",
     "aggregate_stats",
 )
