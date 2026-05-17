@@ -41,6 +41,20 @@ def count_by_project_type(enriched_prs: Iterable[EnrichedPR]) -> dict[str, int]:
     return count_by_field("project_type")(enriched_prs)
 
 
+def count_by_contribution_nature(enriched_prs: Iterable[EnrichedPR]) -> dict[str, int]:
+    """
+    Counts the number of PRs per contribution nature.
+    """
+    return count_by_field("contribution_nature")(enriched_prs)
+
+
+def count_by_description_clarity(enriched_prs: Iterable[EnrichedPR]) -> dict[str, int]:
+    """
+    Counts the number of PRs per description clarity.
+    """
+    return count_by_field("description_clarity")(enriched_prs)
+
+
 def accumulate_stats(stats: Iterable[PRStats]) -> dict[str, int]:
     """
     Accumulates totals and count for a collection of PRStats in a single pass.
