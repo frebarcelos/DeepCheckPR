@@ -1,4 +1,4 @@
-"""Pure transformation functions: filters, mappers, and reducers."""
+"""Funções de transformação puras: filtros, mapeadores e redutores."""
 
 from pr_analyzer.transforms.filters import (
     by_date_range,

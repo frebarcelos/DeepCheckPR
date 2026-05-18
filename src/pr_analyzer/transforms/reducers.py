@@ -1,4 +1,4 @@
-"""Pure transformation functions for aggregating PR data using reductions."""
+"""Funções de transformação puras para agregar dados de PR utilizando reduções."""
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -11,6 +11,10 @@ from pr_analyzer.transforms.mappers import PRStats
 
 @dataclass
 class EnrichedPR:
+    """
+    Representa um registro de Pull Request enriquecido com classificações adicionais.
+    """
+
     pr: PRRecord
     project_type: str
     contribution_nature: str
@@ -18,6 +22,16 @@ class EnrichedPR:
 
 
 def count_by_field(field: str) -> Callable[[Iterable[Any]], dict[str, int]]:
+    """
+    Cria uma função de redução para contar as ocorrências de um campo específico.
+
+    Args:
+        field (str): O nome do atributo ou campo pelo qual agrupar e contar.
+
+    Returns:
+        Callable[[Iterable[Any]], dict[str, int]]: Uma função que recebe um iterável de itens e
+            retorna um dicionário mapeando os valores do campo para a contagem de ocorrências.
+    """
     return lambda items: reduce(
         lambda acc, item: acc
         | {getattr(item, field): acc.get(getattr(item, field), 0) + 1},
@@ -28,37 +42,65 @@ def count_by_field(field: str) -> Callable[[Iterable[Any]], dict[str, int]]:
 
 def count_by_language(prs: Iterable[PRRecord]) -> dict[str, int]:
     """
-    Counts the number of PRs per language using a pure reduction.
-    Returns a dictionary mapping language names to counts.
+    Conta o número de PRs por linguagem utilizando uma redução pura.
+
+    Args:
+        prs (Iterable[PRRecord]): Um iterável de registros de Pull Requests.
+
+    Returns:
+        dict[str, int]: Um dicionário mapeando nomes das linguagens para as suas contagens.
     """
     return count_by_field("language")(prs)
 
 
 def count_by_project_type(enriched_prs: Iterable[EnrichedPR]) -> dict[str, int]:
     """
-    Counts the number of PRs per project type.
+    Conta o número de PRs por tipo de projeto.
+
+    Args:
+        enriched_prs (Iterable[EnrichedPR]): Um iterável de Pull Requests enriquecidos.
+
+    Returns:
+        dict[str, int]: Um dicionário mapeando os tipos de projeto para as suas contagens.
     """
     return count_by_field("project_type")(enriched_prs)
 
 
 def count_by_contribution_nature(enriched_prs: Iterable[EnrichedPR]) -> dict[str, int]:
     """
-    Counts the number of PRs per contribution nature.
+    Conta o número de PRs por natureza de contribuição.
+
+    Args:
+        enriched_prs (Iterable[EnrichedPR]): Um iterável de Pull Requests enriquecidos.
+
+    Returns:
+        dict[str, int]: Um dicionário mapeando as naturezas de contribuição para as suas contagens.
     """
     return count_by_field("contribution_nature")(enriched_prs)
 
 
 def count_by_description_clarity(enriched_prs: Iterable[EnrichedPR]) -> dict[str, int]:
     """
-    Counts the number of PRs per description clarity.
+    Conta o número de PRs por nível de clareza da descrição.
+
+    Args:
+        enriched_prs (Iterable[EnrichedPR]): Um iterável de Pull Requests enriquecidos.
+
+    Returns:
+        dict[str, int]: Um dicionário mapeando os níveis de clareza para as suas contagens.
     """
     return count_by_field("description_clarity")(enriched_prs)
 
 
 def group_by_repo(prs: Iterable[PRRecord]) -> dict[str, list[PRRecord]]:
     """
-    Groups PRs by repository name using a pure reduction.
-    Returns a dictionary mapping repository names to lists of PRRecords.
+    Agrupa PRs pelo nome do repositório utilizando uma redução pura.
+
+    Args:
+        prs (Iterable[PRRecord]): Um iterável de registros de Pull Requests.
+
+    Returns:
+        dict[str, list[PRRecord]]: Um dicionário mapeando os nomes dos repositórios para listas de PRRecords.
     """
     return reduce(
         lambda acc, pr: acc | {pr.repo_name: [*acc.get(pr.repo_name, []), pr]},
@@ -69,7 +111,14 @@ def group_by_repo(prs: Iterable[PRRecord]) -> dict[str, list[PRRecord]]:
 
 def accumulate_stats(stats: Iterable[PRStats]) -> dict[str, int]:
     """
-    Accumulates totals and count for a collection of PRStats in a single pass.
+    Acumula os totais e a contagem para uma coleção de PRStats em uma única passagem.
+
+    Args:
+        stats (Iterable[PRStats]): Um iterável de estatísticas de Pull Requests.
+
+    Returns:
+        dict[str, int]: Um dicionário contendo totais para caracteres, palavras,
+            alterações, mesclagens e a contagem de itens.
     """
     return reduce(
         lambda acc, stat: {
@@ -86,8 +135,14 @@ def accumulate_stats(stats: Iterable[PRStats]) -> dict[str, int]:
 
 def aggregate_stats(stats: Iterable[PRStats]) -> dict[str, float]:
     """
-    Computes average statistics for a collection of PRStats.
-    Returns a dict with avg_chars, avg_words, avg_changes, and merge_rate.
+    Calcula as estatísticas médias para uma coleção de PRStats.
+
+    Args:
+        stats (Iterable[PRStats]): Um iterável de estatísticas de Pull Requests.
+
+    Returns:
+        dict[str, float]: Um dicionário com as médias de caracteres (avg_chars),
+            palavras (avg_words), alterações (avg_changes) e a taxa de mesclagem (merge_rate).
     """
     acc = accumulate_stats(stats)
     count = acc["count"]
