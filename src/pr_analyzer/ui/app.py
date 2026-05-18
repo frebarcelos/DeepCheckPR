@@ -71,8 +71,17 @@ sel_lang, sel_nature, cleaning, llm_tag, metrics = render_sidebar()
 # ── LLM enrichment (TASK-39) ──────────────────────────────────────────────────
 def _maybe_enrich() -> None:
     """Classifica PRs com o LLM configurado. Roda apenas uma vez por dataset carregado."""
-    if not llm_tag or st.session_state.raw_prs is None:
+    if not llm_tag:
         st.session_state.llm_enriched = False
+        return
+    if st.session_state.raw_prs is None:
+        st.session_state.llm_enriched = False
+        st.warning(
+            "Classificação LLM requer um CSV no formato PRRecord "
+            "(colunas: `pr_id`, `repo_name`, `body`…). "
+            "O dataset atual usa dados simulados — faça upload de um CSV compatível.",
+            icon="⚠️",
+        )
         return
     if st.session_state.llm_enriched:
         return
