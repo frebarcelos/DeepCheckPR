@@ -6,6 +6,15 @@ from pr_analyzer.io.csv_reader import PRRecord
 from pr_analyzer.transforms.mappers import PRStats, compute_stats
 from pr_analyzer.transforms.reducers import EnrichedPR
 
+__all__: tuple[str, ...] = (
+    "EnrichedPR",
+    "compose",
+    "pipe",
+    "enrich_pipeline",
+    "stats_pipeline",
+    "build_pipeline",
+)
+
 T = TypeVar("T")
 
 

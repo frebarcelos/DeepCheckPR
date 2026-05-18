@@ -18,7 +18,7 @@ import streamlit as st
 # ─── Mock / demo dataset ─────────────────────────────────────────────────────
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False)  # type: ignore[misc]
 def get_mock_data() -> pd.DataFrame:
     """Return a small but representative demo DataFrame."""
     rows: list[dict[str, Any]] = [
