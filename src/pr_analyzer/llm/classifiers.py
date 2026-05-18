@@ -2,11 +2,17 @@
 
 Fase 1 — stubs com interface completa.
 Fase 2 — substituir stubs por chamadas LLM reais.
+Fase 3 — batch por repositório e enriquecimento lazy com cache.
 """
 
 import json
+from collections.abc import Iterable
+from pathlib import Path
 
+from pr_analyzer.cache.memo import make_enriched_classifier
+from pr_analyzer.io.csv_reader import PRRecord
 from pr_analyzer.llm.client import LLMClient
+from pr_analyzer.transforms.reducers import EnrichedPR
 
 # ── Valores válidos de cada classificação ─────────────────────────────────────
 
@@ -139,3 +145,72 @@ def avaliar_clareza_descricao(
         pass
 
     return "insuficiente"
+
+
+# ── Batch e enriquecimento (Fase 3) ───────────────────────────────────────────
+
+
+def classify_repos_batch(
+    groups: dict[str, list[PRRecord]],
+    client: LLMClient,
+) -> dict[str, str]:
+    """Classifica o tipo de projeto de cada repositório com 1 chamada LLM por repo.
+
+    Recebe o resultado de group_by_repo() e envia os títulos dos PRs de cada
+    grupo como amostra para o classificador, evitando chamadas redundantes por PR.
+
+    Args:
+        groups: dicionário repo_name -> lista de PRs do repositório.
+        client: cliente LLM para chamadas semânticas.
+
+    Returns:
+        Dicionário repo_name -> tipo_projeto.
+    """
+
+    def _classify_repo(item: tuple[str, list[PRRecord]]) -> tuple[str, str]:
+        repo_name, prs = item
+        titles = [pr.title for pr in prs]
+        return (repo_name, classificar_tipo_projeto(repo_name, titles, client))
+
+    return dict(map(_classify_repo, groups.items()))
+
+
+def enrich_prs(
+    prs: Iterable[PRRecord],
+    client: LLMClient,
+    cache_path: Path | None = None,
+) -> Iterable[EnrichedPR]:
+    """Aplica os 3 classificadores a cada PR via map(), retornando EnrichedPRs lazy.
+
+    Usa make_enriched_classifier para envolver os classificadores com cache
+    em memória e em disco. A avaliação é lazy: o LLM só é chamado ao consumir
+    o iterável retornado.
+
+    Args:
+        prs: iterável de PRRecords a enriquecer.
+        client: cliente LLM para chamadas semânticas.
+        cache_path: caminho base para persistência do cache em disco (opcional).
+
+    Returns:
+        Iterável lazy de EnrichedPR.
+    """
+
+    def type_fn(repo: str, title: str) -> str:
+        return classificar_tipo_projeto(repo, [title], client)
+
+    def nature_fn(title: str, body: str) -> str:
+        return classificar_natureza_contribuicao(title, body, client)
+
+    def clarity_fn(body: str) -> str:
+        return avaliar_clareza_descricao(body, client)
+
+    classify = make_enriched_classifier(
+        type_fn, nature_fn, clarity_fn, cache_path=cache_path
+    )
+    return map(classify, prs)
+
+
+# ── English aliases (consumed by pipeline_bridge and external modules) ────────
+classify_project_type = classificar_tipo_projeto
+classify_contribution_nature = classificar_natureza_contribuicao
+classify_description_clarity = avaliar_clareza_descricao

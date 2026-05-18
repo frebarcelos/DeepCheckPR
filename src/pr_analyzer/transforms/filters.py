@@ -4,8 +4,14 @@ from typing import Any
 
 def by_state(state: str) -> Callable[[Any], bool]:
     """
-    Returns a predicate that checks if a PR's state matches the given state.
-    The comparison is case-insensitive.
+    Retorna um predicado que verifica se o estado de um PR corresponde ao estado fornecido.
+    A comparação não diferencia maiúsculas de minúsculas.
+
+    Args:
+        state (str): O estado do Pull Request para filtrar.
+
+    Returns:
+        Callable[[Any], bool]: Uma função predicado que retorna True se o estado do PR corresponder.
     """
     target_state = state.lower()
 
@@ -19,8 +25,14 @@ def by_state(state: str) -> Callable[[Any], bool]:
 
 def by_language(language: str) -> Callable[[Any], bool]:
     """
-    Returns a predicate that checks if a PR's language matches the given language.
-    The comparison is case-insensitive.
+    Retorna um predicado que verifica se a linguagem de um PR corresponde à linguagem fornecida.
+    A comparação não diferencia maiúsculas de minúsculas.
+
+    Args:
+        language (str): A linguagem de programação para filtrar.
+
+    Returns:
+        Callable[[Any], bool]: Uma função predicado que retorna True se a linguagem do PR corresponder.
     """
     target_language = language.lower()
 
@@ -34,8 +46,15 @@ def by_language(language: str) -> Callable[[Any], bool]:
 
 def by_date_range(start: str, end: str) -> Callable[[Any], bool]:
     """
-    Returns a predicate that checks if a PR's created_at date falls within
-    the given start and end dates (inclusive). Expects ISO 8601 strings.
+    Retorna um predicado que verifica se a data de criação de um PR está dentro
+    do intervalo fornecido (inclusivo). Espera strings no formato ISO 8601.
+
+    Args:
+        start (str): A data inicial do intervalo.
+        end (str): A data final do intervalo.
+
+    Returns:
+        Callable[[Any], bool]: Uma função predicado que retorna True se a data de criação do PR estiver no intervalo.
     """
 
     def predicate(pr: Any) -> bool:
@@ -49,7 +68,10 @@ def by_date_range(start: str, end: str) -> Callable[[Any], bool]:
 
 def with_non_empty_body() -> Callable[[Any], bool]:
     """
-    Returns a predicate that checks if a PR has a non-empty body.
+    Retorna um predicado que verifica se um PR possui um corpo (descrição) não vazio.
+
+    Returns:
+        Callable[[Any], bool]: Uma função predicado que retorna True se o corpo do PR não for vazio.
     """
 
     def predicate(pr: Any) -> bool:
@@ -62,8 +84,14 @@ def with_non_empty_body() -> Callable[[Any], bool]:
 
 def with_min_size(min_changes: int) -> Callable[[Any], bool]:
     """
-    Returns a predicate that checks if the total size (additions + deletions)
-    of a PR is greater than or equal to min_changes.
+    Retorna um predicado que verifica se o tamanho total (adições + exclusões)
+    de um PR é maior ou igual a min_changes.
+
+    Args:
+        min_changes (int): O número mínimo de mudanças (adições e deleções combinadas).
+
+    Returns:
+        Callable[[Any], bool]: Uma função predicado que retorna True se o PR possuir tamanho maior ou igual ao mínimo.
     """
 
     def predicate(pr: Any) -> bool:
@@ -79,8 +107,14 @@ def with_min_size(min_changes: int) -> Callable[[Any], bool]:
 
 def combine_filters(*predicates: Callable[[Any], bool]) -> Callable[[Any], bool]:
     """
-    Combines multiple predicates using the logical AND (all).
-    If no predicates are provided, returns True for any PR.
+    Combina múltiplos predicados utilizando o operador lógico AND (all).
+    Se nenhum predicado for fornecido, retorna True para qualquer PR.
+
+    Args:
+        *predicates (Callable[[Any], bool]): Um número variável de funções predicado.
+
+    Returns:
+        Callable[[Any], bool]: Uma função predicado combinada que retorna True apenas se todos os predicados retornarem True.
     """
 
     def predicate(pr: Any) -> bool:

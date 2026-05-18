@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Atualiza pip e setuptools (necessário para PEP 517 build backend)
 RUN pip install --no-cache-dir --upgrade pip setuptools
 
-# Copia apenas o necessário para instalar dependências (melhor cache de layers)
+# Copia apenas o necess'ário para instalar dependências (melhor cache de layers)
 COPY pyproject.toml .
 COPY src/ src/
 

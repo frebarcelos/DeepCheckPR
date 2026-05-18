@@ -1,6 +1,13 @@
 """
 components/tabs.py — Three tab content renderers: dashboard, explorer, export.
-Each render_* function is self-contained and receives only what it needs.
+
+Dashboard tab is now structured around TASK-38: four distribution charts
+(language, project type, contribution nature, description clarity) plus the
+sprint-1 scatter and gauge as auxiliary correlation views.
+
+Export tab is structured around TASK-48 prep: it routes CSV/JSON downloads
+through `utils.exports`, which will switch to dev1's `io.exporters` once
+they land.
 """
 
 from __future__ import annotations
@@ -8,15 +15,24 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 from components.charts import (
-    render_bar_chart,
+    render_clarity_distribution,
     render_clarity_gauge,
-    render_lang_donut,
+    render_lang_distribution,
+    render_nature_distribution,
+    render_project_type_distribution,
     render_scatter_chart,
 )
 from components.kpis import render_kpis
 from streamlit_extras.metric_cards import style_metric_cards
 from utils.constants import COL_RENAMES, PREFERRED_COLS
 from utils.data import build_report_markdown
+from utils.exports import (
+    export_dataframe_csv,
+    export_dataframe_json,
+)
+from utils.pipeline_bridge import (
+    distributions_from_dataframe,
+)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 1 — DASHBOARD
@@ -26,7 +42,6 @@ from utils.data import build_report_markdown
 def render_tab_dashboard(df: pd.DataFrame, metrics_active: bool) -> None:
     render_kpis(df, metrics_active)
 
-    # Style metric cards via streamlit-extras
     style_metric_cards(
         background_color="#18181b",
         border_left_color="#6366f1",
@@ -34,19 +49,38 @@ def render_tab_dashboard(df: pd.DataFrame, metrics_active: bool) -> None:
         box_shadow=False,
     )
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    distributions = distributions_from_dataframe(df)
 
-    col_bar, col_sc = st.columns([3, 2], gap="large")
-    with col_bar:
-        render_bar_chart(df)
+    st.markdown("<br>", unsafe_allow_html=True)
+    _render_distribution_row_top(distributions)
+    st.markdown("<br>", unsafe_allow_html=True)
+    _render_distribution_row_bottom(distributions)
+    st.markdown("<br>", unsafe_allow_html=True)
+    _render_correlation_row(df)
+
+
+def _render_distribution_row_top(distributions: dict[str, dict[str, int]]) -> None:
+    col_lang, col_type = st.columns(2, gap="large")
+    with col_lang:
+        render_lang_distribution(distributions["language"])
+    with col_type:
+        render_project_type_distribution(distributions["project_type"])
+
+
+def _render_distribution_row_bottom(
+    distributions: dict[str, dict[str, int]],
+) -> None:
+    col_nature, col_clarity = st.columns(2, gap="large")
+    with col_nature:
+        render_nature_distribution(distributions["contribution_nature"])
+    with col_clarity:
+        render_clarity_distribution(distributions["description_clarity"])
+
+
+def _render_correlation_row(df: pd.DataFrame) -> None:
+    col_sc, col_gauge = st.columns(2, gap="large")
     with col_sc:
         render_scatter_chart(df)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    col_donut, col_gauge = st.columns(2, gap="large")
-    with col_donut:
-        render_lang_donut(df)
     with col_gauge:
         render_clarity_gauge(df)
 
@@ -57,10 +91,11 @@ def render_tab_dashboard(df: pd.DataFrame, metrics_active: bool) -> None:
 
 
 def render_tab_explorer(df: pd.DataFrame) -> None:
+    cache_note = _cache_status_note()
     st.markdown(
         f"<p style='font-size:9px;font-weight:900;text-transform:uppercase;"
         f"letter-spacing:.15em;color:#52525b;margin-bottom:1rem;'>"
-        f"▸ Explorador de Registros — {len(df)} resultado(s)</p>",
+        f"▸ Explorador de Registros — {len(df)} resultado(s){cache_note}</p>",
         unsafe_allow_html=True,
     )
 
@@ -89,6 +124,18 @@ def render_tab_explorer(df: pd.DataFrame) -> None:
     )
 
 
+def _cache_status_note() -> str:
+    """Render the 'Resultados do cache' indicator next to the explorer header."""
+    cache = st.session_state.get("llm_cache_stats")
+    if not cache or cache.get("total", 0) == 0:
+        return ""
+    hits = int(cache.get("cache_hits", 0))
+    total = int(cache.get("total", 0))
+    if hits == 0:
+        return ""
+    return f" · <span style='color:#34d399;'>{hits}/{total} resultados do cache</span>"
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 3 — EXPORT
 # ══════════════════════════════════════════════════════════════════════════════
@@ -105,7 +152,7 @@ def render_tab_export(df: pd.DataFrame) -> None:
         title="Dataset Estruturado",
         desc="Exportar todos os PRs classificados para CSV.",
         btn_label="Baixar .CSV",
-        btn_data=df.to_csv(index=False).encode(),
+        btn_data=export_dataframe_csv(df),
         btn_file="pr_dataset.csv",
         btn_mime="text/csv",
     )
@@ -116,7 +163,7 @@ def render_tab_export(df: pd.DataFrame) -> None:
         title="Schema de Grafos",
         desc="Representação JSON para Neo4j ou similares.",
         btn_label="Baixar .JSON",
-        btn_data=df.to_json(orient="records", indent=2).encode(),
+        btn_data=export_dataframe_json(df),
         btn_file="pr_graph_schema.json",
         btn_mime="application/json",
     )
@@ -149,7 +196,7 @@ def render_tab_export(df: pd.DataFrame) -> None:
     )
 
 
-# ── Private helper ─────────────────────────────────────────────────────────────
+# ── Private helper ────────────────────────────────────────────────────────────
 
 
 def _export_card(
