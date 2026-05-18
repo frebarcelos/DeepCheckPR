@@ -153,7 +153,7 @@ def test_avaliar_clareza_descricao_truncates_body_to_500(
 
 
 def test_avaliar_clareza_descricao_valid_return(mock_client: MagicMock) -> None:
-    mock_client.run.return_value.content = "excelente"
+    mock_client.run.return_value.content = '{"clareza": "excelente"}'
     result = avaliar_clareza_descricao("Good body", mock_client)
     assert result == "excelente"
 
@@ -256,7 +256,7 @@ def test_enrich_prs_aplica_tres_classificadores(
     mock_client.run.side_effect = [
         MagicMock(content='{"tipo_projeto": "framework"}'),
         MagicMock(content='{"natureza": "feature"}'),
-        MagicMock(content="excelente"),
+        MagicMock(content='{"clareza": "excelente"}'),
     ]
     result = list(enrich_prs([sample_pr], mock_client))
     assert result[0].project_type == "framework"
@@ -284,7 +284,7 @@ def test_enrich_prs_cache_persiste_entre_chamadas(
     mock_client.run.side_effect = [
         MagicMock(content='{"tipo_projeto": "biblioteca"}'),
         MagicMock(content='{"natureza": "bug fix"}'),
-        MagicMock(content="boa"),
+        MagicMock(content='{"clareza": "boa"}'),
     ]
     list(enrich_prs([sample_pr], mock_client, cache_path=cache_file))
 
