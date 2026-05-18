@@ -66,24 +66,28 @@ def test_classificar_tipo_projeto_parse_json(mock_client: MagicMock) -> None:
 
 
 def test_classificar_tipo_projeto_fallback_invalid_json(mock_client: MagicMock) -> None:
-    mock_client.run.return_value.content = 'invalid json'
+    mock_client.run.return_value.content = "invalid json"
     result = classificar_tipo_projeto("repo", ["title"], mock_client)
     assert result == "outro"
 
 
-def test_classificar_tipo_projeto_fallback_invalid_value(mock_client: MagicMock) -> None:
+def test_classificar_tipo_projeto_fallback_invalid_value(
+    mock_client: MagicMock,
+) -> None:
     mock_client.run.return_value.content = '{"tipo_projeto": "valor_invalido"}'
     result = classificar_tipo_projeto("repo", ["title"], mock_client)
     assert result == "outro"
 
 
-@pytest.mark.integration
+@pytest.mark.integration()
 def test_classificar_tipo_projeto_integration() -> None:
     load_dotenv()
     if "GROQ_API_KEY" not in os.environ:
         pytest.skip("Requer GROQ_API_KEY no .env")
     client = create_groq_client()
-    result = classificar_tipo_projeto("django/django", ["fix admin bug", "add feature"], client)
+    result = classificar_tipo_projeto(
+        "django/django", ["fix admin bug", "add feature"], client
+    )
     assert result in TIPOS_PROJETO
 
 
@@ -92,13 +96,17 @@ def test_classificar_tipo_projeto_integration() -> None:
 
 def test_classificar_natureza_contribuicao_parse_json(mock_client: MagicMock) -> None:
     mock_client.run.return_value.content = '{"natureza": "bug fix"}'
-    result = classificar_natureza_contribuicao("Fix memory leak", "Body content", mock_client)
+    result = classificar_natureza_contribuicao(
+        "Fix memory leak", "Body content", mock_client
+    )
     assert result == "bug fix"
     prompt = mock_client.run.call_args[0][0]
     assert "JSON" in prompt.upper()
 
 
-def test_classificar_natureza_contribuicao_truncates_body_to_300(mock_client: MagicMock) -> None:
+def test_classificar_natureza_contribuicao_truncates_body_to_300(
+    mock_client: MagicMock,
+) -> None:
     mock_client.run.return_value.content = '{"natureza": "outro"}'
     long_body = "A" * 500
     classificar_natureza_contribuicao("title", long_body, mock_client)
@@ -108,13 +116,17 @@ def test_classificar_natureza_contribuicao_truncates_body_to_300(mock_client: Ma
     assert "A" * 301 not in prompt
 
 
-def test_classificar_natureza_contribuicao_fallback_invalid_json(mock_client: MagicMock) -> None:
-    mock_client.run.return_value.content = 'invalid'
+def test_classificar_natureza_contribuicao_fallback_invalid_json(
+    mock_client: MagicMock,
+) -> None:
+    mock_client.run.return_value.content = "invalid"
     result = classificar_natureza_contribuicao("title", "body", mock_client)
     assert result == "outro"
 
 
-def test_classificar_natureza_contribuicao_fallback_invalid_value(mock_client: MagicMock) -> None:
+def test_classificar_natureza_contribuicao_fallback_invalid_value(
+    mock_client: MagicMock,
+) -> None:
     mock_client.run.return_value.content = '{"natureza": "invalido"}'
     result = classificar_natureza_contribuicao("title", "body", mock_client)
     assert result == "outro"
@@ -129,7 +141,9 @@ def test_avaliar_clareza_descricao_short_circuit_empty(mock_client: MagicMock) -
     mock_client.run.assert_not_called()
 
 
-def test_avaliar_clareza_descricao_truncates_body_to_500(mock_client: MagicMock) -> None:
+def test_avaliar_clareza_descricao_truncates_body_to_500(
+    mock_client: MagicMock,
+) -> None:
     mock_client.run.return_value.content = "boa"
     long_body = "B" * 600
     avaliar_clareza_descricao(long_body, mock_client)
@@ -214,7 +228,7 @@ def test_enrich_prs_retorna_iteravel(
 ) -> None:
     result = enrich_prs([sample_pr], mock_client)
     assert hasattr(result, "__iter__")
-    assert not isinstance(result, (list, tuple))
+    assert not isinstance(result, list | tuple)
 
 
 def test_enrich_prs_e_lazy(mock_client: MagicMock, sample_pr: PRRecord) -> None:

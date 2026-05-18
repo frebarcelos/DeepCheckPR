@@ -51,17 +51,14 @@ if "fname" not in st.session_state:
     st.session_state.fname = ""
 if "df" not in st.session_state:
     st.session_state.df = get_mock_data()
-<<<<<<< HEAD
 if "llm_backend" not in st.session_state:
     st.session_state.llm_backend = os.environ.get("LLM_BACKEND", "groq")
 if "ollama_model" not in st.session_state:
     st.session_state.ollama_model = os.environ.get("LLM_MODEL", "llama3")
-=======
 if "raw_prs" not in st.session_state:
     st.session_state.raw_prs = None
 if "llm_cache_stats" not in st.session_state:
     st.session_state.llm_cache_stats = None
->>>>>>> 6c87357 (feat(ui): integrate functional pipeline, LLM enrichment, and new distribution charts)
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 sel_lang, sel_nature, cleaning, llm_tag, metrics = render_sidebar()

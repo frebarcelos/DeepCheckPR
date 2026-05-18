@@ -2,11 +2,20 @@
 
 from collections.abc import Callable, Iterable
 from functools import reduce
-from typing import Any
+from typing import Any, NamedTuple
 
 from pr_analyzer.io.csv_reader import PRRecord
-from pr_analyzer.pipeline.builder import EnrichedPR
 from pr_analyzer.transforms.mappers import PRStats
+
+
+class EnrichedPR(NamedTuple):
+    """PRRecord enriquecido com classificações semânticas via LLM."""
+
+    pr: PRRecord
+    project_type: str
+    contribution_nature: str
+    description_clarity: str
+
 
 __all__: tuple[str, ...] = (
     "EnrichedPR",
