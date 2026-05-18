@@ -105,6 +105,7 @@ def _render_file_status() -> None:
             st.session_state.fname = ""
             st.session_state.raw_prs = None
             st.session_state.llm_cache_stats = None
+            st.session_state.llm_enriched = False
             st.rerun()
     else:
         st.markdown(
@@ -128,6 +129,7 @@ def _handle_upload(uploaded: object) -> None:
         st.session_state.file_loaded = True
         st.session_state.fname = filename
         st.session_state.llm_cache_stats = None
+        st.session_state.llm_enriched = False
     except ValueError as exc:
         st.error(str(exc))
 
@@ -169,6 +171,8 @@ def _load_local(dataset: dict[str, Any]) -> None:
     st.session_state.df = df
     st.session_state.file_loaded = True
     st.session_state.fname = dataset["label"]
+    st.session_state.llm_enriched = False
+    st.session_state.llm_cache_stats = None
     st.rerun()
 
 
