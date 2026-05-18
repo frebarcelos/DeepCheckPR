@@ -12,7 +12,7 @@ from pathlib import Path
 from pr_analyzer.cache.memo import make_enriched_classifier
 from pr_analyzer.io.csv_reader import PRRecord
 from pr_analyzer.llm.client import LLMClient
-from pr_analyzer.pipeline.builder import EnrichedPR
+from pr_analyzer.transforms.reducers import EnrichedPR
 
 # ── Valores válidos de cada classificação ─────────────────────────────────────
 
@@ -208,3 +208,9 @@ def enrich_prs(
         type_fn, nature_fn, clarity_fn, cache_path=cache_path
     )
     return map(classify, prs)
+
+
+# ── English aliases (consumed by pipeline_bridge and external modules) ────────
+classify_project_type = classificar_tipo_projeto
+classify_contribution_nature = classificar_natureza_contribuicao
+classify_description_clarity = avaliar_clareza_descricao

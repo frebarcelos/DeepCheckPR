@@ -1,24 +1,33 @@
 """Funções de transformação puras para agregar dados de PR utilizando reduções."""
 
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
 from functools import reduce
-from typing import Any
+from typing import Any, NamedTuple
 
 from pr_analyzer.io.csv_reader import PRRecord
 from pr_analyzer.transforms.mappers import PRStats
 
 
-@dataclass
-class EnrichedPR:
-    """
-    Representa um registro de Pull Request enriquecido com classificações adicionais.
-    """
+class EnrichedPR(NamedTuple):
+    """PRRecord enriquecido com classificações semânticas via LLM."""
 
     pr: PRRecord
     project_type: str
     contribution_nature: str
     description_clarity: str
+
+
+__all__: tuple[str, ...] = (
+    "EnrichedPR",
+    "count_by_field",
+    "count_by_language",
+    "count_by_project_type",
+    "count_by_contribution_nature",
+    "count_by_description_clarity",
+    "group_by_repo",
+    "accumulate_stats",
+    "aggregate_stats",
+)
 
 
 def count_by_field(field: str) -> Callable[[Iterable[Any]], dict[str, int]]:

@@ -24,7 +24,40 @@ from utils.constants import (
 )
 
 _NO_DATA_MSG = "Sem dados para exibir."
-_CHART_CFG = {"displayModeBar": False}
+
+
+def _chart_cfg() -> dict[str, bool]:
+    return {"displayModeBar": False}
+
+
+def _gauge_opts() -> dict[str, object]:
+    return {
+        "number": {
+            "suffix": "%",
+            "font": {"size": 32, "color": "#f4f4f5", "family": "Inter"},
+        },
+        "gauge": {
+            "axis": {
+                "range": [0, 100],
+                "tickcolor": "#52525b",
+                "tickfont": {"size": 9},
+            },
+            "bar": {"color": "#6366f1", "thickness": 0.25},
+            "bgcolor": "#27272a",
+            "steps": [
+                {"range": [0, 40], "color": "rgba(248,113,113,.15)"},
+                {"range": [40, 75], "color": "rgba(251,191,36,.10)"},
+                {"range": [75, 100], "color": "rgba(52,211,153,.10)"},
+            ],
+            "threshold": {
+                "line": {"color": "#818cf8", "width": 2},
+                "thickness": 0.75,
+                "value": 80,
+            },
+        },
+    }
+
+
 _DEFAULT_PALETTE: tuple[str, ...] = (
     "#818cf8",
     "#34d399",
@@ -73,7 +106,7 @@ def render_distribution_bar(
         xaxis=_axis_style(grid=False),
         yaxis=_axis_style(grid=True),
     )
-    st.plotly_chart(fig, use_container_width=True, config=_CHART_CFG)
+    st.plotly_chart(fig, use_container_width=True, config=_chart_cfg())
 
 
 def render_distribution_donut(
@@ -104,7 +137,7 @@ def render_distribution_donut(
         )
     )
     fig.update_layout(**PLOT_BASE)
-    st.plotly_chart(fig, use_container_width=True, config=_CHART_CFG)
+    st.plotly_chart(fig, use_container_width=True, config=_chart_cfg())
 
 
 # ── Pre-bound wrappers (named after dev2's count_by_* reducers) ──────────────
@@ -171,7 +204,7 @@ def render_scatter_chart(df: pd.DataFrame) -> None:
         yaxis=_axis_style(grid=True),
     )
     fig.update_traces(marker={"size": 13, "opacity": 0.8, "line": {"width": 0}})
-    st.plotly_chart(fig, use_container_width=True, config=_CHART_CFG)
+    st.plotly_chart(fig, use_container_width=True, config=_chart_cfg())
 
 
 def render_clarity_gauge(df: pd.DataFrame) -> None:
@@ -188,39 +221,12 @@ def render_clarity_gauge(df: pd.DataFrame) -> None:
     avg = df["clarity"].map(order).mean()
     score = round(avg) if not pd.isna(avg) else 0
 
-    fig = go.Figure(go.Indicator(mode="gauge+number", value=score, **_GAUGE_OPTS))
+    fig = go.Figure(go.Indicator(mode="gauge+number", value=score, **_gauge_opts()))
     fig.update_layout(**{**PLOT_BASE, "height": 220})
-    st.plotly_chart(fig, use_container_width=True, config=_CHART_CFG)
+    st.plotly_chart(fig, use_container_width=True, config=_chart_cfg())
 
 
 # ── Private helpers ──────────────────────────────────────────────────────────
-
-
-_GAUGE_OPTS = {
-    "number": {
-        "suffix": "%",
-        "font": {"size": 32, "color": "#f4f4f5", "family": "Inter"},
-    },
-    "gauge": {
-        "axis": {
-            "range": [0, 100],
-            "tickcolor": "#52525b",
-            "tickfont": {"size": 9},
-        },
-        "bar": {"color": "#6366f1", "thickness": 0.25},
-        "bgcolor": "#27272a",
-        "steps": [
-            {"range": [0, 40], "color": "rgba(248,113,113,.15)"},
-            {"range": [40, 75], "color": "rgba(251,191,36,.10)"},
-            {"range": [75, 100], "color": "rgba(52,211,153,.10)"},
-        ],
-        "threshold": {
-            "line": {"color": "#818cf8", "width": 2},
-            "thickness": 0.75,
-            "value": 80,
-        },
-    },
-}
 
 
 def _panel_header(

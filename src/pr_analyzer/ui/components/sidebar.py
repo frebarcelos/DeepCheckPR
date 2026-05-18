@@ -1,16 +1,11 @@
 """
-<<<<<<< HEAD
 components/sidebar.py — Sidebar with branding, data source, LLM backend, pipeline toggles,
 and filters. Returns filter selections so app.py stays decoupled from widget state.
-=======
-components/sidebar.py — Sidebar with branding, data source, pipeline toggles, and filters.
-Returns filter selections so app.py stays decoupled from widget state.
 
 The "Classificação LLM" toggle (TASK-39) controls whether `enrich_prs` is
 applied to PRRecords coming from the functional pipeline. The result is
 surfaced back through st.session_state.llm_cache_stats so the explorer tab
 can show the "resultados do cache" indicator.
->>>>>>> 6c87357 (feat(ui): integrate functional pipeline, LLM enrichment, and new distribution charts)
 """
 
 from __future__ import annotations
@@ -21,7 +16,6 @@ from typing import Any
 
 import pandas as pd
 import streamlit as st
-<<<<<<< HEAD
 from utils.data import (
     check_ollama,
     discover_datasets,
@@ -29,11 +23,9 @@ from utils.data import (
     get_mock_data,
     load_archive_sample,
     load_dataframe,
-=======
-from utils.data import get_filter_options, get_mock_data, load_dataframe
+)
 from utils.pipeline_bridge import (
     load_uploaded,
->>>>>>> 6c87357 (feat(ui): integrate functional pipeline, LLM enrichment, and new distribution charts)
 )
 
 
@@ -122,7 +114,24 @@ def _render_file_status() -> None:
         )
 
 
-<<<<<<< HEAD
+def _handle_upload(uploaded: object) -> None:
+    """Route uploaded CSVs through the functional pipeline when possible."""
+    filename = getattr(uploaded, "name", "uploaded.csv")
+    try:
+        if filename.endswith(".csv"):
+            df, prs = load_uploaded(uploaded, filename)
+            st.session_state.df = df
+            st.session_state.raw_prs = prs
+        else:
+            st.session_state.df = load_dataframe(uploaded, filename)
+            st.session_state.raw_prs = None
+        st.session_state.file_loaded = True
+        st.session_state.fname = filename
+        st.session_state.llm_cache_stats = None
+    except ValueError as exc:
+        st.error(str(exc))
+
+
 def _render_local_datasets() -> None:
     datasets = discover_datasets("data")
     if not datasets:
@@ -249,24 +258,6 @@ def _render_ollama_setup(host: str) -> None:
 
 
 # ── Pipeline toggles ──────────────────────────────────────────────────────────
-=======
-def _handle_upload(uploaded: object) -> None:
-    """Route uploaded CSVs through the functional pipeline when possible."""
-    filename = getattr(uploaded, "name", "uploaded.csv")
-    try:
-        if filename.endswith(".csv"):
-            df, prs = load_uploaded(uploaded, filename)
-            st.session_state.df = df
-            st.session_state.raw_prs = prs
-        else:
-            st.session_state.df = load_dataframe(uploaded, filename)
-            st.session_state.raw_prs = None
-        st.session_state.file_loaded = True
-        st.session_state.fname = filename
-        st.session_state.llm_cache_stats = None
-    except ValueError as exc:
-        st.error(str(exc))
->>>>>>> 6c87357 (feat(ui): integrate functional pipeline, LLM enrichment, and new distribution charts)
 
 
 def _render_pipeline() -> tuple[bool, bool, bool]:
@@ -278,9 +269,6 @@ def _render_pipeline() -> tuple[bool, bool, bool]:
     return cleaning, llm_tag, metrics
 
 
-<<<<<<< HEAD
-# ── Filters ───────────────────────────────────────────────────────────────────
-=======
 def _render_cache_indicator() -> None:
     """Surface cache-hit info coming back from the last enrichment run."""
     cache = st.session_state.get("llm_cache_stats") or {}
@@ -296,7 +284,9 @@ def _render_cache_indicator() -> None:
         f" {hits} hits · {misses} chamadas reais</div>",
         unsafe_allow_html=True,
     )
->>>>>>> 6c87357 (feat(ui): integrate functional pipeline, LLM enrichment, and new distribution charts)
+
+
+# ── Filters ───────────────────────────────────────────────────────────────────
 
 
 def _render_filters() -> tuple[str, str]:
