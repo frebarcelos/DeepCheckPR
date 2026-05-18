@@ -38,7 +38,12 @@ def _compute_clarity_grade(df: pd.DataFrame) -> str:
 def _compute_volatility(df: pd.DataFrame) -> str:
     if "size" not in df.columns or len(df) == 0:
         return "—"
-    cv = df["size"].std() / df["size"].mean() if df["size"].mean() else 0
+    mean = df["size"].mean()
+    std = df["size"].std()
+    # std is NaN for a single row; mean can be NaN if all values are null
+    if pd.isna(mean) or pd.isna(std) or mean == 0:
+        return "—"
+    cv = std / mean
     if cv < 0.4:
         return "Baixa"
     if cv < 0.8:

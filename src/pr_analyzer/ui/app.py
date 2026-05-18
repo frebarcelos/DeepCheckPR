@@ -4,13 +4,14 @@ app.py — GitAnalyzer entry point.
 Responsibilities (only):
   1. Page configuration
   2. CSS injection
-  3. Session-state bootstrap
-  4. Sidebar rendering → filter values
-  5. Filtering the active DataFrame
+  3. Session-state bootstrap (including the raw_prs tuple from the pipeline)
+  4. Sidebar rendering → filter values + LLM toggle
+  5. Filtering the active DataFrame (and optionally enriching via dev3+dev4)
   6. Routing to the correct main-area view (empty state OR tabs)
 
-All business logic, UI components, and data transforms live in their
-respective modules under components/ and utils/.
+Business logic, UI components, and data transforms live in their respective
+modules under components/ and utils/. Functional-pipeline integration lives
+in utils.pipeline_bridge (the seam between dev5 and dev1-dev4).
 """
 
 import os
@@ -33,6 +34,11 @@ from components.tabs import (  # noqa: E402
 )
 from utils.constants import APP_NAME, APP_VERSION  # noqa: E402
 from utils.data import apply_filters, get_mock_data  # noqa: E402
+from utils.pipeline_bridge import (  # noqa: E402
+    CacheCounter,
+    enrich_prs,
+    enriched_to_dataframe,
+)
 from utils.styles import inject_css  # noqa: E402
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
@@ -49,9 +55,32 @@ if "llm_backend" not in st.session_state:
     st.session_state.llm_backend = os.environ.get("LLM_BACKEND", "groq")
 if "ollama_model" not in st.session_state:
     st.session_state.ollama_model = os.environ.get("LLM_MODEL", "llama3")
+if "raw_prs" not in st.session_state:
+    st.session_state.raw_prs = None
+if "llm_cache_stats" not in st.session_state:
+    st.session_state.llm_cache_stats = None
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 sel_lang, sel_nature, cleaning, llm_tag, metrics = render_sidebar()
+
+
+# ── LLM enrichment (TASK-39) ──────────────────────────────────────────────────
+def _maybe_enrich() -> None:
+    """Run dev3's `enrich_prs` when the toggle is on and we have raw PRRecords."""
+    if not llm_tag or st.session_state.raw_prs is None:
+        return
+
+    counter = CacheCounter()
+    enriched = tuple(enrich_prs(st.session_state.raw_prs, client=None, cache=counter))
+    st.session_state.df = enriched_to_dataframe(enriched)
+    st.session_state.llm_cache_stats = {
+        "cache_hits": counter.cache_hits,
+        "calls_made": counter.calls_made,
+        "total": counter.total,
+    }
+
+
+_maybe_enrich()
 
 # ── Filtered DataFrame (pure transform) ───────────────────────────────────────
 df = apply_filters(st.session_state.df, sel_lang, sel_nature)
