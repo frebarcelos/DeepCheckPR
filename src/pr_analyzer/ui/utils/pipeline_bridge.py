@@ -79,14 +79,14 @@ class EnrichedPR(NamedTuple):
     their type we replace this with `from pr_analyzer.llm import EnrichedPR`.
     """
 
-    pr_id: int
+    pr_id: int | None
     repo_name: str
     language: str
     title: str
     body: str
     state: str
-    additions: int
-    deletions: int
+    additions: int | None
+    deletions: int | None
     project_type: str
     contribution_nature: str
     description_clarity: str

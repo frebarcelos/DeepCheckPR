@@ -1,6 +1,14 @@
 from pr_analyzer.io.csv_reader import PRRecord
 from pr_analyzer.transforms.mappers import PRStats
-from pr_analyzer.transforms.reducers import aggregate_stats, count_by_language
+from pr_analyzer.transforms.reducers import (
+    EnrichedPR,
+    aggregate_stats,
+    count_by_contribution_nature,
+    count_by_description_clarity,
+    count_by_language,
+    count_by_project_type,
+    group_by_repo,
+)
 
 
 def create_sample_pr(language: str) -> PRRecord:
@@ -40,6 +48,71 @@ def test_count_by_language_unknown_only() -> None:
     prs = [create_sample_pr("unknown")]
     result = count_by_language(prs)
     assert result == {"unknown": 1}
+
+
+def test_count_by_project_type_multiple() -> None:
+    prs = [
+        EnrichedPR(create_sample_pr("python"), "aplicação web", "feature", "boa"),
+        EnrichedPR(create_sample_pr("python"), "biblioteca", "bug fix", "excelente"),
+        EnrichedPR(create_sample_pr("java"), "aplicação web", "refatoração", "boa"),
+    ]
+    result = count_by_project_type(prs)
+
+    assert result == {"aplicação web": 2, "biblioteca": 1}
+
+
+def test_count_by_project_type_empty() -> None:
+    result = count_by_project_type([])
+    assert result == {}
+
+
+def test_count_by_contribution_nature_multiple() -> None:
+    prs = [
+        EnrichedPR(create_sample_pr("python"), "aplicação web", "feature", "boa"),
+        EnrichedPR(create_sample_pr("python"), "biblioteca", "bug fix", "excelente"),
+        EnrichedPR(create_sample_pr("java"), "aplicação web", "feature", "boa"),
+    ]
+    result = count_by_contribution_nature(prs)
+    assert result == {"feature": 2, "bug fix": 1}
+
+
+def test_count_by_contribution_nature_empty() -> None:
+    assert count_by_contribution_nature([]) == {}
+
+
+def test_count_by_description_clarity_multiple() -> None:
+    prs = [
+        EnrichedPR(create_sample_pr("python"), "aplicação web", "feature", "boa"),
+        EnrichedPR(create_sample_pr("python"), "biblioteca", "bug fix", "excelente"),
+        EnrichedPR(create_sample_pr("java"), "aplicação web", "feature", "boa"),
+    ]
+    result = count_by_description_clarity(prs)
+    assert result == {"boa": 2, "excelente": 1}
+
+
+def test_count_by_description_clarity_empty() -> None:
+    assert count_by_description_clarity([]) == {}
+
+
+def test_group_by_repo_multiple() -> None:
+    pr1 = create_sample_pr("python")._replace(repo_name="org/repoA")
+    pr2 = create_sample_pr("java")._replace(repo_name="org/repoB")
+    pr3 = create_sample_pr("go")._replace(repo_name="org/repoA")
+
+    prs = [pr1, pr2, pr3]
+    result = group_by_repo(prs)
+
+    assert result == {
+        "org/repoA": [pr1, pr3],
+        "org/repoB": [pr2],
+    }
+    # verify immutability
+    assert len(prs) == 3
+    assert prs == [pr1, pr2, pr3]
+
+
+def test_group_by_repo_empty() -> None:
+    assert group_by_repo([]) == {}
 
 
 def test_aggregate_stats_multiple() -> None:

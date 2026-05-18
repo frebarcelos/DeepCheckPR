@@ -1,20 +1,21 @@
 from collections.abc import Callable, Iterable
 from functools import reduce
-from typing import Any, NamedTuple, TypeVar
+from typing import Any, TypeVar
 
 from pr_analyzer.io.csv_reader import PRRecord
 from pr_analyzer.transforms.mappers import PRStats, compute_stats
+from pr_analyzer.transforms.reducers import EnrichedPR
+
+__all__: tuple[str, ...] = (
+    "EnrichedPR",
+    "compose",
+    "pipe",
+    "enrich_pipeline",
+    "stats_pipeline",
+    "build_pipeline",
+)
 
 T = TypeVar("T")
-
-
-class EnrichedPR(NamedTuple):
-    """PRRecord enriched with LLM-based semantic classifications."""
-
-    pr: PRRecord
-    project_type: str
-    contribution_nature: str
-    description_clarity: str
 
 
 def compose(*fns: Callable[..., Any]) -> Callable[..., Any]:

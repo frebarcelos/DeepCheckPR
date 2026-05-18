@@ -1,4 +1,4 @@
-"""Pure transformation functions for mapping PR records to metadata and stats."""
+"""Funções de transformação puras para mapear registros de PRs em metadados e estatísticas."""
 
 from typing import NamedTuple
 
@@ -6,7 +6,7 @@ from pr_analyzer.io.csv_reader import PRRecord
 
 
 class PRStats(NamedTuple):
-    """Statistics for a single Pull Request record."""
+    """Estatísticas de um único registro de Pull Request."""
 
     body_char_count: int
     body_word_count: int
@@ -16,9 +16,14 @@ class PRStats(NamedTuple):
 
 def compute_stats(pr: PRRecord) -> PRStats:
     """
-    Computes statistics for a given PR record.
-    Returns a PRStats named tuple containing character count, word count,
-    total changes (additions + deletions), and a boolean indicating if it was merged.
+    Calcula as estatísticas para um determinado registro de PR.
+
+    Args:
+        pr (PRRecord): O registro do Pull Request para o qual calcular as estatísticas.
+
+    Returns:
+        PRStats: Uma tupla nomeada PRStats contendo a contagem de caracteres, contagem de palavras,
+            total de alterações (adições + exclusões) e um booleano indicando se o PR foi mesclado.
     """
     body_char_count = len(pr.body)
     body_word_count = len(pr.body.split())
