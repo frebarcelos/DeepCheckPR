@@ -221,14 +221,14 @@ def dataframe_to_prs(df: pd.DataFrame) -> tuple[PRRecord, ...]:
     empty tuple when the frame cannot be mapped safely.
     """
     if df is None or len(df) == 0:
-        return tuple()
+        return ()
 
     columns = {str(c) for c in df.columns}
     canonical = {"pr_id", "repo_name", "language", "title", "state"}
     mined_comments = {"id", "repo", "lang", "comment"}
 
     if not (canonical.issubset(columns) or mined_comments.issubset(columns)):
-        return tuple()
+        return ()
 
     def _first(row: Mapping[str, Any], *names: str, default: Any = "") -> Any:
         for name in names:
