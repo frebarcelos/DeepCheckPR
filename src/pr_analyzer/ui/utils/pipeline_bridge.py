@@ -214,6 +214,55 @@ def prs_to_dataframe(prs: Iterable[PRRecord]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def dataframe_to_prs(df: pd.DataFrame) -> tuple[PRRecord, ...]:
+    """Best-effort conversion from a displayed DataFrame back to PRRecords.
+
+    Supports canonical PR schemas and the mined-comments UI shape. Returns an
+    empty tuple when the frame cannot be mapped safely.
+    """
+    if df is None or len(df) == 0:
+        return tuple()
+
+    columns = {str(c) for c in df.columns}
+    canonical = {"pr_id", "repo_name", "language", "title", "state"}
+    mined_comments = {"id", "repo", "lang", "comment"}
+
+    if not (canonical.issubset(columns) or mined_comments.issubset(columns)):
+        return tuple()
+
+    def _first(row: Mapping[str, Any], *names: str, default: Any = "") -> Any:
+        for name in names:
+            value = row.get(name, None)
+            if value not in (None, ""):
+                return value
+        return default
+
+    records: list[PRRecord] = []
+    for _, raw_row in df.iterrows():
+        row = raw_row.to_dict()
+        title = _first(row, "title", "comment", default="")
+        body = _first(row, "body", "comment", default=title)
+        records.append(
+            apply_schema(
+                {
+                    "pr_id": _first(row, "pr_id", "id", default=""),
+                    "repo_name": _first(row, "repo_name", "repo", default=""),
+                    "language": _first(row, "language", "lang", default=""),
+                    "title": title,
+                    "body": body,
+                    "state": _first(row, "state", default="open"),
+                    "created_at": _first(row, "created_at", "date", default=""),
+                    "merged_at": _first(row, "merged_at", default=""),
+                    "additions": _first(row, "additions", "size", default=""),
+                    "deletions": _first(row, "deletions", default=0),
+                    "changed_files": _first(row, "changed_files", default=1),
+                }
+            )
+        )
+
+    return tuple(records)
+
+
 def _capitalize_clarity(value: str) -> str:
     mapping = {
         "insuficiente": "Insufficient",
@@ -282,7 +331,7 @@ def load_uploaded(
     keep the immutable tuple alongside the DataFrame so downstream steps
     (LLM enrichment, pure filters) can operate on it. Otherwise treat it as
     a flat display CSV (the demo dataset shape) and return only the
-    DataFrame.
+    DataFrame when it cannot be mapped back to PRRecord.
     """
     raw = file.read()
     text = raw.decode("utf-8", errors="replace")
@@ -293,4 +342,5 @@ def load_uploaded(
         return prs_to_dataframe(prs), prs
 
     df = pd.read_csv(StringIO(text))
-    return df, None
+    prs = dataframe_to_prs(df)
+    return df, prs or None

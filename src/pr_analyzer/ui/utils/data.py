@@ -89,14 +89,62 @@ def get_mock_data() -> pd.DataFrame:
 # ─── Loading from uploaded files ─────────────────────────────────────────────
 
 
-def load_dataframe(file: BytesIO, filename: str) -> pd.DataFrame:
+def _is_mined_comments(data: Any) -> bool:
+    """Return True when data matches the mined-comments archive shape.
+
+    Expected shape: { "owner/repo": [ {comment_dict}, ... ], ... }
     """
-    Parse an uploaded file into a DataFrame.
+    if not isinstance(data, dict):
+        return False
+    sample = next(iter(data.values()), None)
+    return isinstance(sample, list)
+
+
+def _mined_comments_to_dataframe(data: dict[str, Any]) -> pd.DataFrame:
+    """Flatten a mined-comments dict into a UI-compatible DataFrame.
+
+    Re-uses the same _comment_row / heuristics that load_archive_sample uses,
+    so the display columns are identical whether the file came from upload or
+    from the local dataset picker.
+    """
+    rows: list[dict[str, Any]] = []
+    for repo_full, comments in data.items():
+        if not isinstance(comments, list):
+            continue
+        for c in comments:
+            file_path = str(c.get("path", ""))
+            body = str(c.get("body", ""))
+            lang_fallback = repo_full.split("/")[-1] if "/" in repo_full else repo_full
+            rows.append(
+                _comment_row(
+                    int(c.get("id", len(rows))),
+                    repo_full,
+                    file_path,
+                    body,
+                    lang_fallback,
+                )
+            )
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows)
+
+
+def load_dataframe(file: BytesIO, filename: str) -> pd.DataFrame:
+    """Parse an uploaded file into a DataFrame.
+
+    Handles three JSON shapes:
+      - mined-comments archive: { "owner/repo": [{comment}, ...] }
+      - list of records:        [ {row}, ... ]
+      - flat dict:              { col: [values] }
+
     Raises ValueError with a descriptive message on failure.
     """
     try:
         if filename.endswith(".json"):
-            return pd.DataFrame(json.load(file))
+            data = json.load(file)
+            if _is_mined_comments(data):
+                return _mined_comments_to_dataframe(data)
+            return pd.DataFrame(data)
         return pd.read_csv(file)
     except Exception as exc:
         raise ValueError(f"Não foi possível ler '{filename}': {exc}") from exc
