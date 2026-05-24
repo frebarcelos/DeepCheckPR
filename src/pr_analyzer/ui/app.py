@@ -15,6 +15,7 @@ in utils.pipeline_bridge (the seam between dev5 and dev1-dev4).
 """
 
 import os
+from pathlib import Path
 
 import streamlit as st
 
@@ -33,7 +34,7 @@ from components.tabs import (  # noqa: E402
 from utils.constants import APP_NAME, APP_VERSION  # noqa: E402
 from utils.data import apply_filters, get_mock_data  # noqa: E402
 from utils.pipeline_bridge import (  # noqa: E402
-    CacheCounter,
+    dataframe_to_prs,
     enrich_prs,
     enriched_to_dataframe,
 )
@@ -55,22 +56,48 @@ if "raw_prs" not in st.session_state:
     st.session_state.raw_prs = None
 if "llm_cache_stats" not in st.session_state:
     st.session_state.llm_cache_stats = None
+if "last_enrich_key" not in st.session_state:
+    st.session_state.last_enrich_key = None
 
 sel_lang, sel_nature, cleaning, llm_tag, metrics = render_sidebar()
 
 
 def _maybe_enrich() -> None:
     """Run dev3's enrich_prs when the toggle is on and we have raw PRRecords."""
-    if not llm_tag or st.session_state.raw_prs is None:
+    if not llm_tag:
         return
 
-    counter = CacheCounter()
-    enriched = tuple(enrich_prs(st.session_state.raw_prs, client=None, cache=counter))
+    raw_prs = st.session_state.raw_prs
+    if raw_prs is None:
+        raw_prs = dataframe_to_prs(st.session_state.df)
+        if raw_prs:
+            st.session_state.raw_prs = raw_prs
+
+    if not raw_prs:
+        return
+
+    current_key = (
+        tuple(pr.pr_id for pr in raw_prs),
+        st.session_state.llm_backend,
+        st.session_state.ollama_model,
+    )
+    if st.session_state.last_enrich_key == current_key:
+        return
+
+    with st.spinner("Classificando PRs com LLM..."):
+        enriched = tuple(
+            enrich_prs(
+                raw_prs,
+                cache_path=Path(".cache/llm"),
+            )
+        )
+
     st.session_state.df = enriched_to_dataframe(enriched)
+    st.session_state.last_enrich_key = current_key
     st.session_state.llm_cache_stats = {
-        "cache_hits": counter.cache_hits,
-        "calls_made": counter.calls_made,
-        "total": counter.total,
+        "cache_hits": 0,
+        "calls_made": len(raw_prs),
+        "total": len(raw_prs),
     }
 
 
