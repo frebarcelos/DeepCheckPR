@@ -18,7 +18,7 @@ import streamlit as st
 MAX_DATASET_SIZE_GB: float = float(os.environ.get("MAX_DATASET_SIZE_GB", "10"))
 
 
-@st.cache_data(show_spinner=False)  # type: ignore[misc]
+@st.cache_data(show_spinner=False)
 def get_mock_data() -> pd.DataFrame:
     """Return a small but representative demo DataFrame."""
     rows: list[dict[str, Any]] = [
@@ -270,7 +270,7 @@ def check_ollama(host: str) -> tuple[bool, list[str]]:
         return False, []
 
 
-@st.cache_data(show_spinner=False)  # type: ignore[misc]
+@st.cache_data(show_spinner=False)
 def load_archive_sample(
     path: str,
     lang: str,
