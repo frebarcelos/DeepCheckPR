@@ -260,18 +260,37 @@ def _render_ollama_panel() -> None:
 def _render_ollama_setup(host: str) -> None:
     st.markdown(
         "<p style='font-size:10px;font-weight:700;color:#a1a1aa;margin:.5rem 0 .25rem;'>"
-        "Como configurar:</p>",
+        "Como configurar (Docker):</p>",
         unsafe_allow_html=True,
     )
-    st.markdown("1. Instale em **ollama.com**")
+    st.markdown("1. Instale o Ollama em **ollama.com**")
     st.markdown("2. Baixe um modelo:")
     st.code("ollama pull llama3", language="bash")
-    st.markdown("3. Inicie o servidor:")
-    st.code("ollama serve", language="bash")
-    if "host.docker.internal" not in host and "localhost" in host:
-        st.info(
-            "No Docker, defina no `.env`:\n"
-            "`OLLAMA_HOST=http://host.docker.internal:11434`"
+    st.markdown("3. Faça o Ollama escutar em todas as interfaces:")
+    st.code(
+        "sudo tee /etc/systemd/system/ollama.service.d/override.conf <<'EOF'\n"
+        "[Service]\n"
+        "Environment=\"OLLAMA_HOST=0.0.0.0\"\n"
+        "EOF\n"
+        "sudo systemctl daemon-reload && sudo systemctl restart ollama",
+        language="bash",
+    )
+    st.markdown("4. Configure o `.env` do projeto:")
+    st.code(
+        "LLM_BACKEND=ollama\n"
+        "OLLAMA_HOST=http://host.docker.internal:11434\n"
+        "LLM_MODEL=llama3",
+        language="bash",
+    )
+    st.info(
+        "O `host.docker.internal` é resolvido automaticamente pelo Docker "
+        "via `extra_hosts` no `docker-compose.yml`. Certifique-se de que o "
+        "Ollama está escutando em `0.0.0.0` (passo 3) antes de iniciar o container."
+    )
+    if "localhost" in host and "host.docker.internal" not in host:
+        st.warning(
+            "Host atual aponta para `localhost`, que dentro do container "
+            "não alcança o Ollama do host. Atualize `OLLAMA_HOST` no `.env`."
         )
 
 
