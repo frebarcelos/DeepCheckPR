@@ -17,6 +17,7 @@ from pr_analyzer.llm.classifiers import (
     classificar_tipo_projeto,
     classify_repos_batch,
     enrich_prs,
+    safe_classify,
 )
 from pr_analyzer.llm.client import create_groq_client
 from pr_analyzer.pipeline.builder import EnrichedPR
@@ -405,3 +406,54 @@ def test_clareza_descricao_contrato_excecao_de_rede(mock_client: MagicMock) -> N
     mock_client.run.side_effect = ConnectionError("network fail")
     result = avaliar_clareza_descricao("body content", mock_client)
     assert result in NIVEIS_CLAREZA_DESCRICAO
+
+
+# ── TASK-44 — safe_classify() HOF ────────────────────────────────────────────
+# TDD: testes escritos antes da implementação.
+
+
+def test_safe_classify_retorna_callable() -> None:
+    wrapped = safe_classify(lambda: "biblioteca", "outro", TIPOS_PROJETO)
+    assert callable(wrapped)
+
+
+def test_safe_classify_passa_resultado_valido() -> None:
+    fn: MagicMock = MagicMock(return_value="biblioteca")
+    wrapped = safe_classify(fn, "outro", TIPOS_PROJETO)
+    assert wrapped("repo", "title") == "biblioteca"
+
+
+def test_safe_classify_fallback_em_valor_invalido() -> None:
+    fn: MagicMock = MagicMock(return_value="valor_fora_do_conjunto")
+    wrapped = safe_classify(fn, "outro", TIPOS_PROJETO)
+    assert wrapped("repo", "title") == "outro"
+
+
+def test_safe_classify_fallback_em_excecao_de_rede() -> None:
+    fn: MagicMock = MagicMock(side_effect=ConnectionError("network fail"))
+    wrapped = safe_classify(fn, "outro", TIPOS_PROJETO)
+    assert wrapped("repo", "title") == "outro"
+
+
+def test_safe_classify_fallback_em_qualquer_excecao() -> None:
+    fn: MagicMock = MagicMock(side_effect=ValueError("bad value"))
+    wrapped = safe_classify(fn, "insuficiente", NIVEIS_CLAREZA_DESCRICAO)
+    assert wrapped("body") == "insuficiente"
+
+
+def test_safe_classify_sem_valid_values_passa_qualquer_string() -> None:
+    fn: MagicMock = MagicMock(return_value="qualquer_coisa")
+    wrapped = safe_classify(fn, "outro")
+    assert wrapped() == "qualquer_coisa"
+
+
+def test_safe_classify_sem_valid_values_ainda_captura_excecao() -> None:
+    fn: MagicMock = MagicMock(side_effect=RuntimeError("boom"))
+    wrapped = safe_classify(fn, "fallback_value")
+    assert wrapped() == "fallback_value"
+
+
+def test_safe_classify_fallback_deve_pertencer_ao_valid_values() -> None:
+    """O fallback passado deve ser compatível com o frozenset — verificação documental."""
+    fallback = "outro"
+    assert fallback in TIPOS_PROJETO
