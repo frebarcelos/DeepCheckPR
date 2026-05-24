@@ -5,7 +5,7 @@ Responsibilities (only):
   1. Page configuration
   2. CSS injection
   3. Session-state bootstrap (including the raw_prs tuple from the pipeline)
-  4. Sidebar rendering → filter values + LLM toggle
+  4. Sidebar rendering -> filter values + LLM toggle
   5. Filtering the active DataFrame (and optionally enriching via dev3+dev4)
   6. Routing to the correct main-area view (empty state OR tabs)
 
@@ -18,14 +18,12 @@ import os
 
 import streamlit as st
 
-# ── Page config (must be the very first Streamlit call) ───────────────────────
 st.set_page_config(
     page_title="GitAnalyzer",
     page_icon="🧬",
     layout="wide",
 )
 
-# ── Internal imports (after set_page_config) ──────────────────────────────────
 from components.sidebar import render_sidebar  # noqa: E402
 from components.tabs import (  # noqa: E402
     render_tab_dashboard,
@@ -41,10 +39,8 @@ from utils.pipeline_bridge import (  # noqa: E402
 )
 from utils.styles import inject_css  # noqa: E402
 
-# ── CSS ───────────────────────────────────────────────────────────────────────
 inject_css()
 
-# ── Session-state bootstrap ───────────────────────────────────────────────────
 if "file_loaded" not in st.session_state:
     st.session_state.file_loaded = False
 if "fname" not in st.session_state:
@@ -60,13 +56,11 @@ if "raw_prs" not in st.session_state:
 if "llm_cache_stats" not in st.session_state:
     st.session_state.llm_cache_stats = None
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
 sel_lang, sel_nature, cleaning, llm_tag, metrics = render_sidebar()
 
 
-# ── LLM enrichment (TASK-39) ──────────────────────────────────────────────────
 def _maybe_enrich() -> None:
-    """Run dev3's `enrich_prs` when the toggle is on and we have raw PRRecords."""
+    """Run dev3's enrich_prs when the toggle is on and we have raw PRRecords."""
     if not llm_tag or st.session_state.raw_prs is None:
         return
 
@@ -82,15 +76,9 @@ def _maybe_enrich() -> None:
 
 _maybe_enrich()
 
-# ── Filtered DataFrame (pure transform) ───────────────────────────────────────
 df = apply_filters(st.session_state.df, sel_lang, sel_nature)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# MAIN AREA
-# ══════════════════════════════════════════════════════════════════════════════
-
 if not st.session_state.file_loaded:
-    # ── Empty / landing state ─────────────────────────────────────────────────
     st.markdown(
         """
         <div class="empty-state">
@@ -111,7 +99,6 @@ if not st.session_state.file_loaded:
             st.rerun()
 
 else:
-    # ── Main tabs ─────────────────────────────────────────────────────────────
     tab_dash, tab_explore, tab_export = st.tabs(["DASH", "EXPLORAR", "EXPORTAR"])
 
     with tab_dash:
@@ -123,10 +110,10 @@ else:
     with tab_export:
         render_tab_export(df)
 
-# ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown(
     f"<br><p style='text-align:center;font-size:9px;color:#3f3f46;"
     f"font-weight:900;letter-spacing:2px;'>"
     f"{APP_NAME} V{APP_VERSION} — PIPELINE FUNCIONAL</p>",
     unsafe_allow_html=True,
 )
+

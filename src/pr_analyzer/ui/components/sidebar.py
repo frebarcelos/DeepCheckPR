@@ -1,11 +1,12 @@
 """
-components/sidebar.py — Sidebar with branding, data source, LLM backend, pipeline toggles,
-and filters. Returns filter selections so app.py stays decoupled from widget state.
+components/sidebar.py — Sidebar with branding, data source, LLM backend, pipeline
+toggles, and filters. Returns filter selections so app.py stays decoupled from
+widget state.
 
-The "Classificação LLM" toggle (TASK-39) controls whether `enrich_prs` is
-applied to PRRecords coming from the functional pipeline. The result is
-surfaced back through st.session_state.llm_cache_stats so the explorer tab
-can show the "resultados do cache" indicator.
+The "Classificação LLM" toggle controls whether enrich_prs is applied to
+PRRecords coming from the functional pipeline. The result is surfaced back
+through st.session_state.llm_cache_stats so the explorer tab can show the
+"resultados do cache" indicator.
 """
 
 from __future__ import annotations
@@ -46,9 +47,6 @@ def render_sidebar() -> tuple[str, str, bool, bool, bool]:
         sel_lang, sel_nature = _render_filters()
 
     return sel_lang, sel_nature, cleaning, llm_tag, metrics
-
-
-# ── Private helpers ───────────────────────────────────────────────────────────
 
 
 def _render_brand() -> None:
@@ -190,9 +188,6 @@ def _load_local(dataset: dict[str, Any]) -> None:
     st.rerun()
 
 
-# ── LLM backend ───────────────────────────────────────────────────────────────
-
-
 def _render_llm_backend() -> None:
     st.markdown("### 🤖 BACKEND LLM")
 
@@ -294,9 +289,6 @@ def _render_ollama_setup(host: str) -> None:
         )
 
 
-# ── Pipeline toggles ──────────────────────────────────────────────────────────
-
-
 def _render_pipeline() -> tuple[bool, bool, bool]:
     st.markdown("### ⚙ PIPELINE")
     cleaning = st.toggle("Sanitização Funcional", value=True, key="cleaning")
@@ -323,12 +315,10 @@ def _render_cache_indicator() -> None:
     )
 
 
-# ── Filters ───────────────────────────────────────────────────────────────────
-
-
 def _render_filters() -> tuple[str, str]:
     st.markdown("### 🔍 REFINAR VISÃO")
     langs, natures = get_filter_options(st.session_state.df)
     sel_lang: str = st.selectbox("LINGUAGEM", langs)
     sel_nature: str = st.selectbox("NATUREZA", natures)
     return sel_lang, sel_nature
+
