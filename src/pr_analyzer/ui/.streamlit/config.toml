@@ -2,6 +2,7 @@
 headless = true
 runOnSave = true
 fileWatcherType = "auto"
+maxUploadSize = 10240
 
 [client]
 toolbarMode = "minimal"
