@@ -291,3 +291,117 @@ def test_enrich_prs_cache_persiste_entre_chamadas(
     mock_client.run.reset_mock()
     list(enrich_prs([sample_pr], mock_client, cache_path=cache_file))
     assert mock_client.run.call_count == 0
+
+
+# ── TASK-45 — Testes de contrato dos classificadores ─────────────────────────
+# Invariante: o output SEMPRE pertence ao frozenset válido, independente do
+# input ou da resposta do LLM (inclusive inputs extremos e respostas inválidas).
+
+
+@pytest.mark.parametrize(
+    ("nome_repo", "titulos"),
+    [
+        ("org/repo", ["Fix bug"]),
+        ("org/repo", [""]),
+        ("org/repo", ["A" * 10_000]),
+        ("org/repo", ["título ç €uro 🔥 \x00 \n\t"]),
+        ("", ["title"]),
+    ],
+)
+@pytest.mark.parametrize(
+    "llm_content",
+    [
+        '{"tipo_projeto": "biblioteca"}',
+        '{"tipo_projeto": "valor_invalido"}',
+        "garbage não-json",
+        "",
+    ],
+)
+def test_tipo_projeto_contrato_output_sempre_valido(
+    nome_repo: str,
+    titulos: list[str],
+    llm_content: str,
+    mock_client: MagicMock,
+) -> None:
+    mock_client.run.return_value.content = llm_content
+    result = classificar_tipo_projeto(nome_repo, titulos, mock_client)
+    assert result in TIPOS_PROJETO
+
+
+def test_tipo_projeto_contrato_excecao_de_rede(mock_client: MagicMock) -> None:
+    mock_client.run.side_effect = ConnectionError("network fail")
+    result = classificar_tipo_projeto("org/repo", ["title"], mock_client)
+    assert result in TIPOS_PROJETO
+
+
+@pytest.mark.parametrize(
+    ("titulo", "corpo"),
+    [
+        ("Fix bug", "Some body"),
+        ("", "Some body"),
+        ("Fix bug", ""),
+        ("Fix bug", "B" * 10_000),
+        ("título ç 🔥", "corpo €special \x00 \n\t"),
+    ],
+)
+@pytest.mark.parametrize(
+    "llm_content",
+    [
+        '{"natureza": "bug fix"}',
+        '{"natureza": "invalido"}',
+        "garbage não-json",
+        "",
+    ],
+)
+def test_natureza_contribuicao_contrato_output_sempre_valido(
+    titulo: str,
+    corpo: str,
+    llm_content: str,
+    mock_client: MagicMock,
+) -> None:
+    mock_client.run.return_value.content = llm_content
+    result = classificar_natureza_contribuicao(titulo, corpo, mock_client)
+    assert result in NATUREZAS_CONTRIBUICAO
+
+
+def test_natureza_contribuicao_contrato_excecao_de_rede(
+    mock_client: MagicMock,
+) -> None:
+    mock_client.run.side_effect = ConnectionError("network fail")
+    result = classificar_natureza_contribuicao("title", "body", mock_client)
+    assert result in NATUREZAS_CONTRIBUICAO
+
+
+@pytest.mark.parametrize(
+    "corpo",
+    [
+        "Normal body",
+        "",
+        "   \n\t  ",
+        "C" * 10_000,
+        "clareza €special ç 🔥 \x00 \n\t",
+    ],
+)
+@pytest.mark.parametrize(
+    "llm_content",
+    [
+        "boa",
+        "excelente",
+        "valor_invalido",
+        "",
+    ],
+)
+def test_clareza_descricao_contrato_output_sempre_valido(
+    corpo: str,
+    llm_content: str,
+    mock_client: MagicMock,
+) -> None:
+    mock_client.run.return_value.content = llm_content
+    result = avaliar_clareza_descricao(corpo, mock_client)
+    assert result in NIVEIS_CLAREZA_DESCRICAO
+
+
+def test_clareza_descricao_contrato_excecao_de_rede(mock_client: MagicMock) -> None:
+    mock_client.run.side_effect = ConnectionError("network fail")
+    result = avaliar_clareza_descricao("body content", mock_client)
+    assert result in NIVEIS_CLAREZA_DESCRICAO
