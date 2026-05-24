@@ -24,7 +24,7 @@ services:
       - .env
     command: pytest tests/ -m "not integration" --tb=short -q
     profiles:
-      - test               # executa apenas com: docker compose --profile test up test
+      - test
 
   lint:
     build: .
