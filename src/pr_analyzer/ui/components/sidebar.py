@@ -115,21 +115,32 @@ def _render_file_status() -> None:
 
 
 def _handle_upload(uploaded: object) -> None:
-    """Route uploaded CSVs through the functional pipeline when possible."""
+    """Route uploaded CSVs through the functional pipeline when possible.
+
+    The Streamlit UploadedFile cursor may be at an arbitrary position after
+    widget rendering, so we always seek(0) and read into a fresh BytesIO
+    before passing to any parser — avoiding empty-read errors.
+    """
+    from io import BytesIO
+
     filename = getattr(uploaded, "name", "uploaded.csv")
     try:
+        if hasattr(uploaded, "seek"):
+            uploaded.seek(0)
+        raw_bytes: bytes = uploaded.read() if hasattr(uploaded, "read") else b""
+        buf = BytesIO(raw_bytes)
         if filename.endswith(".csv"):
-            df, prs = load_uploaded(uploaded, filename)
+            df, prs = load_uploaded(buf, filename)
             st.session_state.df = df
             st.session_state.raw_prs = prs
         else:
-            st.session_state.df = load_dataframe(uploaded, filename)
+            st.session_state.df = load_dataframe(buf, filename)
             st.session_state.raw_prs = None
         st.session_state.file_loaded = True
         st.session_state.fname = filename
         st.session_state.llm_cache_stats = None
-    except ValueError as exc:
-        st.error(str(exc))
+    except Exception as exc:
+        st.error(f"Não foi possível carregar \"{filename}\": {exc}")
 
 
 def _render_local_datasets() -> None:
