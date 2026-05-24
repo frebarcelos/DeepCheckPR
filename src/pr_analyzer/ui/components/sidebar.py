@@ -148,7 +148,7 @@ def _render_local_datasets() -> None:
     if not datasets:
         return
 
-    with st.expander("DATASETS LOCAIS", expanded=False):
+    with st.expander("DATASETS LOCAIS", expanded=True):
         labels: list[str] = ["— selecionar —", *(d["label"] for d in datasets)]
         choice: str = st.selectbox(
             "Dataset local",
@@ -156,11 +156,18 @@ def _render_local_datasets() -> None:
             key="local_ds_select",
             label_visibility="collapsed",
         )
-        if choice != "— selecionar —" and st.button(
-            "Carregar", key="load_local_btn", use_container_width=True
-        ):
+        if choice != "— selecionar —":
             selected = next(d for d in datasets if d["label"] == choice)
-            _load_local(selected)
+            if selected.get("oversized"):
+                st.warning(
+                    f"Arquivo excede o limite configurado "
+                    f"({os.environ.get('MAX_DATASET_SIZE_GB', '10')} GB). "
+                    "Ajuste MAX_DATASET_SIZE_GB no .env para carregar."
+                )
+            elif st.button(
+                "Carregar", key="load_local_btn", use_container_width=True
+            ):
+                _load_local(selected)
 
 
 def _load_local(dataset: dict[str, Any]) -> None:

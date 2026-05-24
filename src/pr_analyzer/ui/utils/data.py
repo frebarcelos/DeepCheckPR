@@ -15,7 +15,7 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-# ─── Mock / demo dataset ─────────────────────────────────────────────────────
+MAX_DATASET_SIZE_GB: float = float(os.environ.get("MAX_DATASET_SIZE_GB", "10"))
 
 
 @st.cache_data(show_spinner=False)  # type: ignore[misc]
@@ -151,23 +151,37 @@ _EXT_TO_LANG: dict[str, str] = {
 }
 
 
-def discover_datasets(data_dir: str) -> list[dict[str, Any]]:
-    """Return available datasets in data_dir (top-level files + archive subdirs)."""
+def discover_datasets(
+    data_dir: str,
+    max_size_gb: float = MAX_DATASET_SIZE_GB,
+) -> list[dict[str, Any]]:
+    """Return available datasets in data_dir (top-level files + archive subdirs).
+
+    Files larger than max_size_gb are listed but flagged as oversized so the UI
+    can warn the user instead of silently skipping them.
+    """
     base = Path(data_dir)
     if not base.is_dir():
         return []
 
     results: list[dict[str, Any]] = []
+    max_bytes = max_size_gb * 1024**3
 
     for entry in sorted(base.iterdir()):
         if entry.is_file() and entry.suffix in (".csv", ".json"):
-            mb = entry.stat().st_size / 1024**2
+            size_bytes = entry.stat().st_size
+            mb = size_bytes / 1024**2
+            oversized = size_bytes > max_bytes
+            label = f"{entry.name}  ({mb:.1f} MB)"
+            if oversized:
+                label += f"  ⚠ >{max_size_gb:.0f} GB"
             results.append(
                 {
-                    "label": f"{entry.name}  ({mb:.1f} MB)",
+                    "label": label,
                     "path": str(entry),
                     "format": entry.suffix.lstrip("."),
                     "lang": None,
+                    "oversized": oversized,
                 }
             )
 
@@ -176,16 +190,22 @@ def discover_datasets(data_dir: str) -> list[dict[str, Any]]:
         for sub in sorted(archive.iterdir()):
             inner = sub / sub.name
             if sub.is_dir() and inner.is_file():
-                gb = inner.stat().st_size / 1024**3
+                size_bytes = inner.stat().st_size
+                gb = size_bytes / 1024**3
+                oversized = size_bytes > max_bytes
                 lang = sub.name.replace("mined-comments-25stars-25prs-", "").replace(
                     ".json", ""
                 )
+                label = f"{lang}  ({gb:.1f} GB · amostra)"
+                if oversized:
+                    label += f"  ⚠ >{max_size_gb:.0f} GB"
                 results.append(
                     {
-                        "label": f"{lang}  ({gb:.1f} GB · amostra)",
+                        "label": label,
                         "path": str(inner),
                         "format": "archive",
                         "lang": lang,
+                        "oversized": oversized,
                     }
                 )
 
