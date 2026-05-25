@@ -226,6 +226,116 @@ def render_clarity_gauge(df: pd.DataFrame) -> None:
     st.plotly_chart(fig, use_container_width=True, config=_chart_cfg())
 
 
+def render_body_size_chart(df: pd.DataFrame) -> None:
+    """Bar chart: avg description length (chars and words) grouped by a dimension.
+
+    US06 — visualizar distribuição de tamanho de descrição estratificada.
+    """
+    _panel_header(
+        "📝 Tamanho de Descrição por Dimensão",
+        "linear-gradient(180deg,#34d399,#059669)",
+    )
+
+    if "chars" not in df.columns or len(df) == 0:
+        st.info(_NO_DATA_MSG)
+        return
+
+    dim: str = st.selectbox(
+        "Agrupar por",
+        ["lang", "type", "nature"],
+        format_func=lambda x: {
+            "lang": "Linguagem",
+            "type": "Tipo",
+            "nature": "Natureza",
+        }[x],
+        key="body_size_dim",
+        label_visibility="collapsed",
+    )
+
+    if dim not in df.columns:
+        st.info(_NO_DATA_MSG)
+        return
+
+    agg = (
+        df[df[dim] != "—"]
+        .groupby(dim)[["chars", "words"]]
+        .mean()
+        .round(0)
+        .reset_index()
+        .sort_values("chars", ascending=False)
+    )
+
+    if agg.empty:
+        st.info(_NO_DATA_MSG)
+        return
+
+    fig = px.bar(
+        agg,
+        x=dim,
+        y=["chars", "words"],
+        barmode="group",
+        color_discrete_map={"chars": "#6366f1", "words": "#34d399"},
+        labels={dim: "", "value": "Média", "variable": "Métrica"},
+    )
+    fig.update_layout(
+        **PLOT_BASE,
+        legend={"orientation": "h", "y": 1.1, "x": 0},
+        yaxis=_axis_style(grid=True),
+        xaxis=_axis_style(grid=False),
+    )
+    st.plotly_chart(fig, use_container_width=True, config=_chart_cfg())
+
+
+def render_clarity_cross_chart(df: pd.DataFrame) -> None:
+    """Grouped bar: clarity distribution crossed with project type or nature.
+
+    US07 — visualizar relação entre clareza, tipo, natureza e linguagem.
+    """
+    _panel_header("🔗 Clareza por Dimensão", "linear-gradient(180deg,#f472b6,#db2777)")
+
+    required = {"clarity", "type", "nature", "lang"}
+    if not required.issubset(df.columns) or len(df) == 0:
+        st.info(_NO_DATA_MSG)
+        return
+
+    dim: str = st.selectbox(
+        "Cruzar clareza com",
+        ["type", "nature", "lang"],
+        format_func=lambda x: {
+            "type": "Tipo de Projeto",
+            "nature": "Natureza",
+            "lang": "Linguagem",
+        }[x],
+        key="clarity_cross_dim",
+        label_visibility="collapsed",
+    )
+
+    filtered = df[(df["clarity"] != "—") & (df[dim] != "—")]
+    if filtered.empty:
+        st.info(_NO_DATA_MSG)
+        return
+
+    counts = filtered.groupby([dim, "clarity"]).size().reset_index(name="count")
+
+    fig = px.bar(
+        counts,
+        x=dim,
+        y="count",
+        color="clarity",
+        barmode="group",
+        color_discrete_map=CLARITY_COLOR,
+        category_orders={"clarity": CLARITY_ORDER},
+        labels={dim: "", "count": "PRs", "clarity": "Clareza"},
+    )
+    fig.update_layout(
+        **PLOT_BASE,
+        legend={"orientation": "h", "y": 1.1, "x": 0},
+        yaxis=_axis_style(grid=True),
+        xaxis=_axis_style(grid=False),
+    )
+    st.plotly_chart(fig, use_container_width=True, config=_chart_cfg())
+
+
 # ── Private helpers ──────────────────────────────────────────────────────────
 
 

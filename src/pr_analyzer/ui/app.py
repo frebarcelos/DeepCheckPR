@@ -65,7 +65,9 @@ if "llm_enriched" not in st.session_state:
     st.session_state.llm_enriched = False
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
-sel_lang, sel_nature, cleaning, llm_tag, metrics = render_sidebar()
+sel_lang, sel_nature, sel_type, sel_clarity, cleaning, llm_tag, metrics = (
+    render_sidebar()
+)
 
 
 # ── LLM enrichment (TASK-39) ──────────────────────────────────────────────────
@@ -130,7 +132,7 @@ def _maybe_enrich() -> None:
 _maybe_enrich()
 
 # ── Filtered DataFrame (pure transform) ───────────────────────────────────────
-df = apply_filters(st.session_state.df, sel_lang, sel_nature)
+df = apply_filters(st.session_state.df, sel_lang, sel_nature, sel_type, sel_clarity)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN AREA

@@ -29,10 +29,10 @@ from utils.pipeline_bridge import (
 )
 
 
-def render_sidebar() -> tuple[str, str, bool, bool, bool]:
+def render_sidebar() -> tuple[str, str, str, str, bool, bool, bool]:
     """
     Render the full sidebar and return:
-        (sel_lang, sel_nature, cleaning, llm_tag, metrics)
+        (sel_lang, sel_nature, sel_type, sel_clarity, cleaning, llm_tag, metrics)
     Handles file upload, local dataset selection, and LLM backend state internally.
     """
     with st.sidebar:
@@ -43,9 +43,9 @@ def render_sidebar() -> tuple[str, str, bool, bool, bool]:
         st.divider()
         cleaning, llm_tag, metrics = _render_pipeline()
         st.divider()
-        sel_lang, sel_nature = _render_filters()
+        sel_lang, sel_nature, sel_type, sel_clarity = _render_filters()
 
-    return sel_lang, sel_nature, cleaning, llm_tag, metrics
+    return sel_lang, sel_nature, sel_type, sel_clarity, cleaning, llm_tag, metrics
 
 
 # ── Private helpers ───────────────────────────────────────────────────────────
@@ -301,9 +301,11 @@ def _render_cache_indicator() -> None:
 # ── Filters ───────────────────────────────────────────────────────────────────
 
 
-def _render_filters() -> tuple[str, str]:
+def _render_filters() -> tuple[str, str, str, str]:
     st.markdown("### 🔍 REFINAR VISÃO")
-    langs, natures = get_filter_options(st.session_state.df)
+    langs, natures, types, clarities = get_filter_options(st.session_state.df)
     sel_lang: str = st.selectbox("LINGUAGEM", langs)
     sel_nature: str = st.selectbox("NATUREZA", natures)
-    return sel_lang, sel_nature
+    sel_type: str = st.selectbox("TIPO DE PROJETO", types)
+    sel_clarity: str = st.selectbox("CLAREZA", clarities)
+    return sel_lang, sel_nature, sel_type, sel_clarity

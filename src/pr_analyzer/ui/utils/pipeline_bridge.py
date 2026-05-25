@@ -259,6 +259,8 @@ _DISPLAY_COLUMNS: tuple[str, ...] = (
     "nature",
     "clarity",
     "size",
+    "chars",
+    "words",
     "state",
     "title",
 )
@@ -275,6 +277,8 @@ def enriched_to_dataframe(items: Iterable[EnrichedPR]) -> pd.DataFrame:
             "nature": e.contribution_nature.title() if e.contribution_nature else "—",
             "clarity": _capitalize_clarity(e.description_clarity),
             "size": (e.additions or 0) + (e.deletions or 0),
+            "chars": len(e.body) if e.body else 0,
+            "words": len(e.body.split()) if e.body else 0,
             "state": e.state.title() if e.state else "—",
             "title": e.title,
         }
@@ -286,11 +290,7 @@ def enriched_to_dataframe(items: Iterable[EnrichedPR]) -> pd.DataFrame:
 
 
 def prs_to_dataframe(prs: Iterable[PRRecord]) -> pd.DataFrame:
-    """Materialize raw PRRecords (un-enriched) into a DataFrame.
-
-    Classification columns are left empty so the UI can highlight that LLM
-    classification is disabled.
-    """
+    """Materialize raw PRRecords (un-enriched) into a DataFrame."""
     rows = [
         {
             "id": pr.pr_id,
@@ -300,6 +300,8 @@ def prs_to_dataframe(prs: Iterable[PRRecord]) -> pd.DataFrame:
             "nature": "—",
             "clarity": "—",
             "size": (pr.additions or 0) + (pr.deletions or 0),
+            "chars": len(pr.body) if pr.body else 0,
+            "words": len(pr.body.split()) if pr.body else 0,
             "state": pr.state.title() if pr.state else "—",
             "title": pr.title,
         }
