@@ -1,8 +1,10 @@
+import os
 from collections.abc import Callable, Iterable
 from functools import reduce
 from typing import Any, TypeVar
 
 from pr_analyzer.io.csv_reader import PRRecord
+from pr_analyzer.transforms.filters import by_state, with_min_size
 from pr_analyzer.transforms.mappers import PRStats, compute_stats
 from pr_analyzer.transforms.reducers import EnrichedPR
 
@@ -13,6 +15,7 @@ __all__: tuple[str, ...] = (
     "enrich_pipeline",
     "stats_pipeline",
     "build_pipeline",
+    "pipeline_from_env",
 )
 
 T = TypeVar("T")
@@ -51,3 +54,32 @@ def build_pipeline(
     """Pipeline lazy: aplica filters com filter() e mappers com map() sobre source."""
     filtered = reduce(lambda s, f: filter(f, s), filters, source)
     return reduce(lambda s, m: map(m, s), mappers, filtered)
+
+
+def pipeline_from_env(
+    source: Iterable[PRRecord],
+    classify_fn: Callable[[PRRecord], EnrichedPR] | None = None,
+) -> Iterable[Any]:
+    """Pipeline lazy configurado por variáveis de ambiente.
+
+    FILTER_STATE: filtra PRs pelo estado (ex: "merged", "open"). Padrão: sem filtro.
+    MIN_CHANGES:  mínimo de alterações (additions + deletions). Padrão: 0.
+    ENABLE_LLM:   se "true" e classify_fn for fornecido, aplica enriquecimento LLM.
+    """
+    state = os.environ.get("FILTER_STATE", "").strip().lower()
+    min_ch = int(os.environ.get("MIN_CHANGES", "0") or "0")
+    enable_llm = os.environ.get("ENABLE_LLM", "false").lower() == "true"
+
+    state_filter: tuple[Callable[..., Any], ...] = (by_state(state),) if state else ()
+    size_filter: tuple[Callable[..., Any], ...] = (
+        (with_min_size(min_ch),) if min_ch > 0 else ()
+    )
+    llm_mapper: tuple[Callable[..., Any], ...] = (
+        (classify_fn,) if enable_llm and classify_fn is not None else ()
+    )
+
+    return build_pipeline(
+        source,
+        filters=state_filter + size_filter,
+        mappers=llm_mapper,
+    )

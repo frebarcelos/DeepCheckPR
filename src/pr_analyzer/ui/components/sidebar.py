@@ -105,6 +105,7 @@ def _render_file_status() -> None:
             st.session_state.fname = ""
             st.session_state.raw_prs = None
             st.session_state.llm_cache_stats = None
+            st.session_state.llm_enriched = False
             st.rerun()
     else:
         st.markdown(
@@ -128,6 +129,7 @@ def _handle_upload(uploaded: object) -> None:
         st.session_state.file_loaded = True
         st.session_state.fname = filename
         st.session_state.llm_cache_stats = None
+        st.session_state.llm_enriched = False
     except ValueError as exc:
         st.error(str(exc))
 
@@ -156,19 +158,29 @@ def _load_local(dataset: dict[str, Any]) -> None:
     fmt: str = dataset["format"]
     path: str = dataset["path"]
 
+    raw_prs = None
     if fmt == "archive":
         lang = str(dataset.get("lang", ""))
         with st.spinner(f"Amostrando {lang} (2 000 registros)…"):
             df = load_archive_sample(path, lang)
     elif fmt == "csv":
-        df = pd.read_csv(path)
+        import io as _io
+
+        with open(path, "rb") as f:
+            raw = f.read()
+        df, raw_prs = load_uploaded(_io.BytesIO(raw), path.split("/")[-1])
+        if raw_prs is None:
+            df = pd.read_csv(_io.BytesIO(raw))
     else:
         with open(path, encoding="utf-8") as jf:
             df = pd.DataFrame(json.load(jf))
 
     st.session_state.df = df
+    st.session_state.raw_prs = raw_prs
     st.session_state.file_loaded = True
     st.session_state.fname = dataset["label"]
+    st.session_state.llm_enriched = False
+    st.session_state.llm_cache_stats = None
     st.rerun()
 
 

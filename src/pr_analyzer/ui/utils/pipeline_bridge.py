@@ -33,7 +33,7 @@ from utils.distributions import (
 )
 
 from pr_analyzer.cache.memo import cached_classify
-from pr_analyzer.io import PRRecord, apply_schema
+from pr_analyzer.io import PRRecord, apply_schema, detect_schema, schema_adapter
 from pr_analyzer.llm.classifiers import (
     classify_contribution_nature,
     classify_description_clarity,
@@ -104,14 +104,16 @@ LLMRunHandle = Any  # Agent | MagicMock — narrow to Protocol once dev3 fixes t
 def parse_csv_bytes(raw: bytes) -> tuple[PRRecord, ...]:
     """Convert raw CSV bytes (uploaded file) into an immutable tuple of PRRecords.
 
-    Uses dev1's `apply_schema` per row. Falls back to skipping rows whose
-    pr_id cannot be parsed — dev1's TASK-30 (is_valid_row) will harden this.
+    Detects the CSV schema (canonical or github_export) and adapts column names
+    before calling apply_schema, so fields like `description`→`body` are mapped.
     """
     import csv
 
     text = raw.decode("utf-8", errors="replace")
     reader = csv.DictReader(StringIO(text))
-    return tuple(apply_schema(row) for row in reader)
+    schema = detect_schema(reader.fieldnames or [])
+    adapt = schema_adapter(schema) if schema != "unknown" else lambda r: dict(r)
+    return tuple(apply_schema(adapt(row)) for row in reader)
 
 
 def looks_like_pr_record_csv(header_row: Iterable[str]) -> bool:
