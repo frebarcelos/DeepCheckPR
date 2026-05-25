@@ -7,7 +7,7 @@ Fase 3 — batch por repositório e enriquecimento lazy com cache.
 
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
 from pr_analyzer.cache.memo import make_enriched_classifier
@@ -235,6 +235,40 @@ def enrich_prs(
         type_fn, nature_fn, clarity_fn, cache_path=cache_path
     )
     return map(classify, prs)
+
+
+# ── safe_classify HOF (TASK-44) ───────────────────────────────────────────────
+
+
+def safe_classify(
+    classifier_fn: Callable[..., str],
+    fallback: str,
+    valid_values: frozenset[str] | None = None,
+) -> Callable[..., str]:
+    """HOF que envolve um classificador com tratamento de saída inválida.
+
+    Se o classificador lançar qualquer exceção, ou retornar um valor fora de
+    valid_values (quando fornecido), retorna fallback sem propagar o erro.
+
+    Args:
+        classifier_fn: função classificadora a envolver.
+        fallback: valor retornado em caso de saída inválida ou exceção.
+        valid_values: conjunto de valores aceitos; None desativa a validação.
+
+    Returns:
+        Callable com a mesma assinatura de classifier_fn.
+    """
+
+    def wrapper(*args: str) -> str:
+        try:
+            result = classifier_fn(*args)
+            if valid_values is not None and result not in valid_values:
+                return fallback
+            return result
+        except Exception:
+            return fallback
+
+    return wrapper
 
 
 # ── English aliases (consumed by pipeline_bridge and external modules) ────────
