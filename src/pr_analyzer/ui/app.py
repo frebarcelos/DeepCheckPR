@@ -15,7 +15,6 @@ in utils.pipeline_bridge (the seam between dev5 and dev1-dev4).
 """
 
 import os
-from pathlib import Path
 
 import streamlit as st
 
@@ -34,11 +33,12 @@ from components.tabs import (  # noqa: E402
 from utils.constants import APP_NAME, APP_VERSION  # noqa: E402
 from utils.data import apply_filters, get_mock_data  # noqa: E402
 from utils.pipeline_bridge import (  # noqa: E402
-    dataframe_to_prs,
     enrich_prs,
     enriched_to_dataframe,
 )
 from utils.styles import inject_css  # noqa: E402
+
+from pr_analyzer.llm.client import create_llm_client  # noqa: E402
 
 inject_css()
 
@@ -56,49 +56,63 @@ if "raw_prs" not in st.session_state:
     st.session_state.raw_prs = None
 if "llm_cache_stats" not in st.session_state:
     st.session_state.llm_cache_stats = None
-if "last_enrich_key" not in st.session_state:
-    st.session_state.last_enrich_key = None
+if "llm_enriched" not in st.session_state:
+    st.session_state.llm_enriched = False
 
 sel_lang, sel_nature, cleaning, llm_tag, metrics = render_sidebar()
 
 
 def _maybe_enrich() -> None:
-    """Run dev3's enrich_prs when the toggle is on and we have raw PRRecords."""
+    """Classifica PRs com o LLM configurado. Roda apenas uma vez por dataset carregado."""
     if not llm_tag:
+        st.session_state.llm_enriched = False
+        return
+    if st.session_state.raw_prs is None:
+        st.session_state.llm_enriched = False
+        st.warning(
+            "Classificação LLM requer um CSV no formato PRRecord "
+            "(colunas: `pr_id`, `repo_name`, `body`…). "
+            "O dataset atual usa dados simulados — faça upload de um CSV compatível.",
+            icon="⚠️",
+        )
+        return
+    if st.session_state.llm_enriched:
         return
 
-    raw_prs = st.session_state.raw_prs
-    if raw_prs is None:
-        raw_prs = dataframe_to_prs(st.session_state.df)
-        if raw_prs:
-            st.session_state.raw_prs = raw_prs
+    prs = st.session_state.raw_prs
+    n = len(prs)
+    backend = st.session_state.get("llm_backend", "groq")
+    model = st.session_state.get("ollama_model", os.environ.get("LLM_MODEL", "llama3"))
 
-    if not raw_prs:
+    os.environ["LLM_BACKEND"] = backend
+    os.environ["LLM_MODEL"] = model
+
+    try:
+        client = create_llm_client()
+    except Exception as exc:
+        st.error(f"Erro ao conectar ao {backend.upper()}: {exc}")
         return
 
-    current_key = (
-        tuple(pr.pr_id for pr in raw_prs),
-        st.session_state.llm_backend,
-        st.session_state.ollama_model,
-    )
-    if st.session_state.last_enrich_key == current_key:
-        return
+    enriched_list = []
 
-    with st.spinner("Classificando PRs com LLM..."):
-        enriched = tuple(
-            enrich_prs(
-                raw_prs,
-                cache_path=Path(".cache/llm"),
-            )
+    with st.status(
+        f"Classificando {n} PR{'s' if n != 1 else ''} com {backend.upper()}…",
+        expanded=True,
+    ) as status:
+        st.caption(f"Modelo: `{model}`")
+        bar = st.progress(0.0)
+        for i, ep in enumerate(enrich_prs(prs, client=client), 1):
+            enriched_list.append(ep)
+            bar.progress(i / n)
+        status.update(
+            label=f"✓ {n} PRs classificados com {backend.upper()}",
+            state="complete",
+            expanded=False,
         )
 
-    st.session_state.df = enriched_to_dataframe(enriched)
-    st.session_state.last_enrich_key = current_key
-    st.session_state.llm_cache_stats = {
-        "cache_hits": 0,
-        "calls_made": len(raw_prs),
-        "total": len(raw_prs),
-    }
+    st.session_state.df = enriched_to_dataframe(enriched_list)
+    st.session_state.llm_cache_stats = {"cache_hits": 0, "calls_made": n, "total": n}
+    st.session_state.llm_enriched = True
 
 
 _maybe_enrich()
@@ -143,4 +157,3 @@ st.markdown(
     f"{APP_NAME} V{APP_VERSION} — PIPELINE FUNCIONAL</p>",
     unsafe_allow_html=True,
 )
-

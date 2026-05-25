@@ -103,6 +103,7 @@ def _render_file_status() -> None:
             st.session_state.fname = ""
             st.session_state.raw_prs = None
             st.session_state.llm_cache_stats = None
+            st.session_state.llm_enriched = False
             st.rerun()
     else:
         st.markdown(
@@ -137,8 +138,9 @@ def _handle_upload(uploaded: object) -> None:
         st.session_state.file_loaded = True
         st.session_state.fname = filename
         st.session_state.llm_cache_stats = None
+        st.session_state.llm_enriched = False
     except Exception as exc:
-        st.error(f"Não foi possível carregar \"{filename}\": {exc}")
+        st.error(f'Não foi possível carregar "{filename}": {exc}')
 
 
 def _render_local_datasets() -> None:
@@ -162,9 +164,7 @@ def _render_local_datasets() -> None:
                     f"({os.environ.get('MAX_DATASET_SIZE_GB', '10')} GB). "
                     "Ajuste MAX_DATASET_SIZE_GB no .env para carregar."
                 )
-            elif st.button(
-                "Carregar", key="load_local_btn", use_container_width=True
-            ):
+            elif st.button("Carregar", key="load_local_btn", use_container_width=True):
                 _load_local(selected)
 
 
@@ -172,19 +172,29 @@ def _load_local(dataset: dict[str, Any]) -> None:
     fmt: str = dataset["format"]
     path: str = dataset["path"]
 
+    raw_prs = None
     if fmt == "archive":
         lang = str(dataset.get("lang", ""))
         with st.spinner(f"Amostrando {lang} (2 000 registros)…"):
             df = load_archive_sample(path, lang)
     elif fmt == "csv":
-        df = pd.read_csv(path)
+        import io as _io
+
+        with open(path, "rb") as f:
+            raw = f.read()
+        df, raw_prs = load_uploaded(_io.BytesIO(raw), path.split("/")[-1])
+        if raw_prs is None:
+            df = pd.read_csv(_io.BytesIO(raw))
     else:
         with open(path, encoding="utf-8") as jf:
             df = pd.DataFrame(json.load(jf))
 
     st.session_state.df = df
+    st.session_state.raw_prs = raw_prs
     st.session_state.file_loaded = True
     st.session_state.fname = dataset["label"]
+    st.session_state.llm_enriched = False
+    st.session_state.llm_cache_stats = None
     st.rerun()
 
 
@@ -265,7 +275,7 @@ def _render_ollama_setup(host: str) -> None:
     st.code(
         "sudo tee /etc/systemd/system/ollama.service.d/override.conf <<'EOF'\n"
         "[Service]\n"
-        "Environment=\"OLLAMA_HOST=0.0.0.0\"\n"
+        'Environment="OLLAMA_HOST=0.0.0.0"\n'
         "EOF\n"
         "sudo systemctl daemon-reload && sudo systemctl restart ollama",
         language="bash",
@@ -321,4 +331,3 @@ def _render_filters() -> tuple[str, str]:
     sel_lang: str = st.selectbox("LINGUAGEM", langs)
     sel_nature: str = st.selectbox("NATUREZA", natures)
     return sel_lang, sel_nature
-

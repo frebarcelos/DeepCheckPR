@@ -33,11 +33,10 @@ from utils.distributions import (
     count_by_project_type as _local_project_type,
 )
 
-from pr_analyzer.io import PRRecord, apply_schema
+from pr_analyzer.io import PRRecord, apply_schema, detect_schema, schema_adapter
 from pr_analyzer.llm.classifiers import enrich_prs as backend_enrich_prs
 from pr_analyzer.llm.client import LLMClient, create_llm_client
 from pr_analyzer.pipeline.builder import build_pipeline
-from pr_analyzer.transforms.reducers import EnrichedPR
 from pr_analyzer.transforms import (
     by_language,
     by_state,
@@ -45,6 +44,7 @@ from pr_analyzer.transforms import (
     with_min_size,
     with_non_empty_body,
 )
+from pr_analyzer.transforms.reducers import EnrichedPR
 
 # ── Dev2 reducers (when available) ───────────────────────────────────────────
 # When dev2 ships transforms.reducers (TASK-31/32) this import block resolves
@@ -81,14 +81,16 @@ ClassifierFn = Callable[..., str]
 def parse_csv_bytes(raw: bytes) -> tuple[PRRecord, ...]:
     """Convert raw CSV bytes (uploaded file) into an immutable tuple of PRRecords.
 
-    Uses dev1's `apply_schema` per row. Falls back to skipping rows whose
-    pr_id cannot be parsed — dev1's TASK-30 (is_valid_row) will harden this.
+    Detects the CSV schema (canonical or github_export) and adapts column names
+    before calling apply_schema, so fields like `description`→`body` are mapped.
     """
     import csv
 
     text = raw.decode("utf-8", errors="replace")
     reader = csv.DictReader(StringIO(text))
-    return tuple(apply_schema(row) for row in reader)
+    schema = detect_schema(reader.fieldnames or [])
+    adapt = schema_adapter(schema) if schema != "unknown" else lambda r: dict(r)
+    return tuple(apply_schema(adapt(row)) for row in reader)
 
 
 def looks_like_pr_record_csv(header_row: Iterable[str]) -> bool:
@@ -133,6 +135,7 @@ def filter_prs(
 
 
 # ── LLM enrichment via dev3 + dev4 cache ──────────────────────────────────────
+
 
 def enrich_prs(
     prs: Iterable[PRRecord],
