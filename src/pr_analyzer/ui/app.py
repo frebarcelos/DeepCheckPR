@@ -5,7 +5,7 @@ Responsibilities (only):
   1. Page configuration
   2. CSS injection
   3. Session-state bootstrap (including the raw_prs tuple from the pipeline)
-  4. Sidebar rendering -> filter values + LLM toggle
+  4. Sidebar rendering → filter values + LLM toggle
   5. Filtering the active DataFrame (and optionally enriching via dev3+dev4)
   6. Routing to the correct main-area view (empty state OR tabs)
 
@@ -18,12 +18,14 @@ import os
 
 import streamlit as st
 
+# ── Page config (must be the very first Streamlit call) ───────────────────────
 st.set_page_config(
     page_title="GitAnalyzer",
     page_icon="🧬",
     layout="wide",
 )
 
+# ── Internal imports (after set_page_config) ──────────────────────────────────
 from components.sidebar import render_sidebar  # noqa: E402
 from components.tabs import (  # noqa: E402
     render_tab_dashboard,
@@ -33,6 +35,7 @@ from components.tabs import (  # noqa: E402
 from utils.constants import APP_NAME, APP_VERSION  # noqa: E402
 from utils.data import apply_filters, get_mock_data  # noqa: E402
 from utils.pipeline_bridge import (  # noqa: E402
+    CacheCounter,
     enrich_prs,
     enriched_to_dataframe,
 )
@@ -40,8 +43,10 @@ from utils.styles import inject_css  # noqa: E402
 
 from pr_analyzer.llm.client import create_llm_client  # noqa: E402
 
+# ── CSS ───────────────────────────────────────────────────────────────────────
 inject_css()
 
+# ── Session-state bootstrap ───────────────────────────────────────────────────
 if "file_loaded" not in st.session_state:
     st.session_state.file_loaded = False
 if "fname" not in st.session_state:
@@ -59,9 +64,13 @@ if "llm_cache_stats" not in st.session_state:
 if "llm_enriched" not in st.session_state:
     st.session_state.llm_enriched = False
 
-sel_lang, sel_nature, cleaning, llm_tag, metrics = render_sidebar()
+# ── Sidebar ───────────────────────────────────────────────────────────────────
+sel_lang, sel_nature, sel_type, sel_clarity, cleaning, llm_tag, metrics = (
+    render_sidebar()
+)
 
 
+# ── LLM enrichment (TASK-39) ──────────────────────────────────────────────────
 def _maybe_enrich() -> None:
     """Classifica PRs com o LLM configurado. Roda apenas uma vez por dataset carregado."""
     if not llm_tag:
@@ -93,6 +102,7 @@ def _maybe_enrich() -> None:
         st.error(f"Erro ao conectar ao {backend.upper()}: {exc}")
         return
 
+    counter = CacheCounter()
     enriched_list = []
 
     with st.status(
@@ -101,25 +111,35 @@ def _maybe_enrich() -> None:
     ) as status:
         st.caption(f"Modelo: `{model}`")
         bar = st.progress(0.0)
-        for i, ep in enumerate(enrich_prs(prs, client=client), 1):
+        for i, ep in enumerate(enrich_prs(prs, client=client, cache=counter), 1):
             enriched_list.append(ep)
             bar.progress(i / n)
         status.update(
-            label=f"✓ {n} PRs classificados com {backend.upper()}",
+            label=f"✓ {n} PRs classificados — {counter.cache_hits} do cache, {counter.calls_made} chamadas reais",
             state="complete",
             expanded=False,
         )
 
     st.session_state.df = enriched_to_dataframe(enriched_list)
-    st.session_state.llm_cache_stats = {"cache_hits": 0, "calls_made": n, "total": n}
+    st.session_state.llm_cache_stats = {
+        "cache_hits": counter.cache_hits,
+        "calls_made": counter.calls_made,
+        "total": counter.total,
+    }
     st.session_state.llm_enriched = True
 
 
 _maybe_enrich()
 
-df = apply_filters(st.session_state.df, sel_lang, sel_nature)
+# ── Filtered DataFrame (pure transform) ───────────────────────────────────────
+df = apply_filters(st.session_state.df, sel_lang, sel_nature, sel_type, sel_clarity)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MAIN AREA
+# ══════════════════════════════════════════════════════════════════════════════
 
 if not st.session_state.file_loaded:
+    # ── Empty / landing state ─────────────────────────────────────────────────
     st.markdown(
         """
         <div class="empty-state">
@@ -140,6 +160,7 @@ if not st.session_state.file_loaded:
             st.rerun()
 
 else:
+    # ── Main tabs ─────────────────────────────────────────────────────────────
     tab_dash, tab_explore, tab_export = st.tabs(["DASH", "EXPLORAR", "EXPORTAR"])
 
     with tab_dash:
@@ -151,6 +172,7 @@ else:
     with tab_export:
         render_tab_export(df)
 
+# ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown(
     f"<br><p style='text-align:center;font-size:9px;color:#3f3f46;"
     f"font-weight:900;letter-spacing:2px;'>"
