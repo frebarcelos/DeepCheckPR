@@ -6,6 +6,7 @@ Fase 3 — batch por repositório e enriquecimento lazy com cache.
 """
 
 import json
+import re
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
@@ -13,6 +14,27 @@ from pr_analyzer.cache.memo import make_enriched_classifier
 from pr_analyzer.io.csv_reader import PRRecord
 from pr_analyzer.llm.client import LLMClient
 from pr_analyzer.transforms.reducers import EnrichedPR
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+_CODE_BLOCK = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL)
+
+_CLARITY_EN_TO_PT: dict[str, str] = {
+    "insufficient": "insuficiente",
+    "basic": "básica",
+    "good": "boa",
+    "excellent": "excelente",
+}
+
+
+def _extract_json(text: str) -> dict[str, str]:
+    """Parse JSON from model response, stripping markdown code blocks if present."""
+    raw = text.strip()
+    match = _CODE_BLOCK.search(raw)
+    if match:
+        raw = match.group(1).strip()
+    return json.loads(raw)  # type: ignore[no-any-return]
+
 
 # ── Valores válidos de cada classificação ─────────────────────────────────────
 
@@ -70,7 +92,7 @@ def classificar_tipo_projeto(
 
     try:
         response = cliente.run(prompt)
-        data = json.loads(response.content)
+        data = _extract_json(str(response.content))
         result = str(data.get("tipo_projeto", "")).lower()
         if result in TIPOS_PROJETO:
             return result
@@ -102,7 +124,7 @@ def classificar_natureza_contribuicao(
 
     try:
         response = cliente.run(prompt)
-        data = json.loads(response.content)
+        data = _extract_json(str(response.content))
         result = str(data.get("natureza", "")).lower()
         if result in NATUREZAS_CONTRIBUICAO:
             return result
@@ -131,16 +153,21 @@ def avaliar_clareza_descricao(
         return "insuficiente"
 
     corpo_cortado = corpo[:500]
-    prompt = f"Avalie a clareza deste corpo de PR: {corpo_cortado}\n"
-    prompt += f"Responda apenas com uma das seguintes opções: {', '.join(NIVEIS_CLAREZA_DESCRICAO)}."
+    opts = ", ".join(sorted(NIVEIS_CLAREZA_DESCRICAO))
+    prompt = f"Avalie a clareza deste corpo de PR:\n{corpo_cortado}\n"
+    prompt += 'Responda APENAS em JSON: {"clareza": "..."}. '
+    prompt += f"Opções válidas: {opts}."
 
     try:
         response = cliente.run(prompt)
-        result = str(response.content).strip().lower()
-
-        for nivel in NIVEIS_CLAREZA_DESCRICAO:
-            if nivel in result:
-                return nivel
+        data = _extract_json(str(response.content))
+        result = str(data.get("clareza", "")).strip().lower()
+        if result in NIVEIS_CLAREZA_DESCRICAO:
+            return result
+        # accept English equivalents (common with Ollama models)
+        mapped = _CLARITY_EN_TO_PT.get(result)
+        if mapped:
+            return mapped
     except Exception:
         pass
 

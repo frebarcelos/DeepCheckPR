@@ -16,7 +16,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
 from io import BytesIO, StringIO
-from typing import Any, NamedTuple
+from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from utils.distributions import (
@@ -32,13 +33,9 @@ from utils.distributions import (
     count_by_project_type as _local_project_type,
 )
 
-from pr_analyzer.cache.memo import cached_classify
-from pr_analyzer.io import PRRecord, apply_schema
-from pr_analyzer.llm.classifiers import (
-    classify_contribution_nature,
-    classify_description_clarity,
-    classify_project_type,
-)
+from pr_analyzer.io import PRRecord, apply_schema, detect_schema, schema_adapter
+from pr_analyzer.llm.classifiers import enrich_prs as backend_enrich_prs
+from pr_analyzer.llm.client import LLMClient, create_llm_client
 from pr_analyzer.pipeline.builder import build_pipeline
 from pr_analyzer.transforms import (
     by_language,
@@ -47,6 +44,7 @@ from pr_analyzer.transforms import (
     with_min_size,
     with_non_empty_body,
 )
+from pr_analyzer.transforms.reducers import EnrichedPR
 
 # ── Dev2 reducers (when available) ───────────────────────────────────────────
 # When dev2 ships transforms.reducers (TASK-31/32) this import block resolves
@@ -72,30 +70,9 @@ except ImportError:
 # Until then we apply the three classifier stubs via map() locally.
 
 
-class EnrichedPR(NamedTuple):
-    """Local mirror of the EnrichedPR type expected from dev3/dev4.
-
-    Matches the field names dev2's `count_by_*` will rely on. When dev3 ships
-    their type we replace this with `from pr_analyzer.llm import EnrichedPR`.
-    """
-
-    pr_id: int | None
-    repo_name: str
-    language: str
-    title: str
-    body: str
-    state: str
-    additions: int | None
-    deletions: int | None
-    project_type: str
-    contribution_nature: str
-    description_clarity: str
-
-
 # ── Type aliases ──────────────────────────────────────────────────────────────
 
 ClassifierFn = Callable[..., str]
-LLMRunHandle = Any  # Agent | MagicMock — narrow to Protocol once dev3 fixes type
 
 
 # ── CSV ingestion via dev1 ────────────────────────────────────────────────────
@@ -104,14 +81,16 @@ LLMRunHandle = Any  # Agent | MagicMock — narrow to Protocol once dev3 fixes t
 def parse_csv_bytes(raw: bytes) -> tuple[PRRecord, ...]:
     """Convert raw CSV bytes (uploaded file) into an immutable tuple of PRRecords.
 
-    Uses dev1's `apply_schema` per row. Falls back to skipping rows whose
-    pr_id cannot be parsed — dev1's TASK-30 (is_valid_row) will harden this.
+    Detects the CSV schema (canonical or github_export) and adapts column names
+    before calling apply_schema, so fields like `description`→`body` are mapped.
     """
     import csv
 
     text = raw.decode("utf-8", errors="replace")
     reader = csv.DictReader(StringIO(text))
-    return tuple(apply_schema(row) for row in reader)
+    schema = detect_schema(reader.fieldnames or [])
+    adapt = schema_adapter(schema) if schema != "unknown" else lambda r: dict(r)
+    return tuple(apply_schema(adapt(row)) for row in reader)
 
 
 def looks_like_pr_record_csv(header_row: Iterable[str]) -> bool:
@@ -158,92 +137,22 @@ def filter_prs(
 # ── LLM enrichment via dev3 + dev4 cache ──────────────────────────────────────
 
 
-class CacheCounter:
-    """Tracks classifier invocations to expose a cache-hit indicator on the UI.
-
-    For each wrapped classifier we count *actual* invocations (cache miss)
-    vs *served-from-cache* invocations (cache hit). The diff tells the UI
-    how many classifications came from the persistent cache.
-    """
-
-    def __init__(self) -> None:
-        self.calls_made: int = 0
-        self.cache_hits: int = 0
-
-    def wrap(self, classifier_fn: ClassifierFn) -> ClassifierFn:
-        invocations = {"n": 0}
-
-        def tracking(*args: str) -> str:
-            invocations["n"] += 1
-            return classifier_fn(*args)
-
-        cached = cached_classify(tracking)
-
-        def observed(*args: str) -> str:
-            before = invocations["n"]
-            result = cached(*args)
-            if invocations["n"] == before:
-                self.cache_hits += 1
-            else:
-                self.calls_made += 1
-            return result
-
-        return observed
-
-    @property
-    def total(self) -> int:
-        return self.calls_made + self.cache_hits
-
-
-def enrich_pr(
-    pr: PRRecord,
-    client: LLMRunHandle,
-    classifiers: Mapping[str, ClassifierFn],
-) -> EnrichedPR:
-    """Apply the three classifiers to a single PRRecord."""
-    project = classifiers["project_type"](pr.repo_name, pr.title, str(client))
-    nature = classifiers["contribution_nature"](pr.title, pr.body, str(client))
-    clarity = classifiers["description_clarity"](pr.body, str(client))
-    return EnrichedPR(
-        pr_id=pr.pr_id,
-        repo_name=pr.repo_name,
-        language=pr.language,
-        title=pr.title,
-        body=pr.body,
-        state=pr.state,
-        additions=pr.additions,
-        deletions=pr.deletions,
-        project_type=project,
-        contribution_nature=nature,
-        description_clarity=clarity,
-    )
-
-
 def enrich_prs(
     prs: Iterable[PRRecord],
-    client: LLMRunHandle,
-    cache: CacheCounter | None = None,
+    client: LLMClient | None = None,
+    cache_path: Path | None = None,
 ) -> Iterable[EnrichedPR]:
-    """Map each PRRecord into an EnrichedPR using dev3's classifiers.
+    """Delegate enrichment to the real backend implementation.
 
-    Matches the signature of dev3's TASK-35 `enrich_prs`. When dev3 ships
-    their implementation we switch this body to a single import + call.
+    Creates the configured LLM client from .env when no client is provided and
+    uses the disk-backed cache implemented by make_enriched_classifier.
     """
-    counter = cache or CacheCounter()
-
-    classifiers: dict[str, ClassifierFn] = {
-        "project_type": counter.wrap(
-            lambda repo, title, _c: classify_project_type(repo, [title], client)
-        ),
-        "contribution_nature": counter.wrap(
-            lambda title, body, _c: classify_contribution_nature(title, body, client)
-        ),
-        "description_clarity": counter.wrap(
-            lambda body, _c: classify_description_clarity(body, client)
-        ),
-    }
-
-    return (enrich_pr(pr, client, classifiers) for pr in prs)
+    llm_client = client or create_llm_client()
+    return backend_enrich_prs(
+        prs=prs,
+        client=llm_client,
+        cache_path=cache_path,
+    )
 
 
 # ── DataFrame adapters ────────────────────────────────────────────────────────
@@ -257,24 +166,28 @@ _DISPLAY_COLUMNS: tuple[str, ...] = (
     "nature",
     "clarity",
     "size",
+    "chars",
+    "words",
     "state",
     "title",
 )
 
 
-def enriched_to_dataframe(items: Iterable[EnrichedPR]) -> pd.DataFrame:
+def enriched_to_dataframe(items: Iterable[Any]) -> pd.DataFrame:
     """Materialize enriched PRs into a DataFrame using the UI's display columns."""
     rows = [
         {
-            "id": e.pr_id,
-            "repo": e.repo_name,
-            "lang": e.language.title() if e.language else "—",
+            "id": e.pr.pr_id,
+            "repo": e.pr.repo_name,
+            "lang": e.pr.language.title() if e.pr.language else "—",
             "type": e.project_type.title() if e.project_type else "—",
             "nature": e.contribution_nature.title() if e.contribution_nature else "—",
             "clarity": _capitalize_clarity(e.description_clarity),
-            "size": (e.additions or 0) + (e.deletions or 0),
-            "state": e.state.title() if e.state else "—",
-            "title": e.title,
+            "size": (e.pr.additions or 0) + (e.pr.deletions or 0),
+            "chars": len(e.pr.body) if e.pr.body else 0,
+            "words": len(e.pr.body.split()) if e.pr.body else 0,
+            "state": e.pr.state.title() if e.pr.state else "—",
+            "title": e.pr.title,
         }
         for e in items
     ]
@@ -284,11 +197,7 @@ def enriched_to_dataframe(items: Iterable[EnrichedPR]) -> pd.DataFrame:
 
 
 def prs_to_dataframe(prs: Iterable[PRRecord]) -> pd.DataFrame:
-    """Materialize raw PRRecords (un-enriched) into a DataFrame.
-
-    Classification columns are left empty so the UI can highlight that LLM
-    classification is disabled.
-    """
+    """Materialize raw PRRecords (un-enriched) into a DataFrame."""
     rows = [
         {
             "id": pr.pr_id,
@@ -298,6 +207,8 @@ def prs_to_dataframe(prs: Iterable[PRRecord]) -> pd.DataFrame:
             "nature": "—",
             "clarity": "—",
             "size": (pr.additions or 0) + (pr.deletions or 0),
+            "chars": len(pr.body) if pr.body else 0,
+            "words": len(pr.body.split()) if pr.body else 0,
             "state": pr.state.title() if pr.state else "—",
             "title": pr.title,
         }
@@ -306,6 +217,55 @@ def prs_to_dataframe(prs: Iterable[PRRecord]) -> pd.DataFrame:
     if not rows:
         return pd.DataFrame(columns=list(_DISPLAY_COLUMNS))
     return pd.DataFrame(rows)
+
+
+def dataframe_to_prs(df: pd.DataFrame) -> tuple[PRRecord, ...]:
+    """Best-effort conversion from a displayed DataFrame back to PRRecords.
+
+    Supports canonical PR schemas and the mined-comments UI shape. Returns an
+    empty tuple when the frame cannot be mapped safely.
+    """
+    if df is None or len(df) == 0:
+        return ()
+
+    columns = {str(c) for c in df.columns}
+    canonical = {"pr_id", "repo_name", "language", "title", "state"}
+    mined_comments = {"id", "repo", "lang", "comment"}
+
+    if not (canonical.issubset(columns) or mined_comments.issubset(columns)):
+        return ()
+
+    def _first(row: Mapping[str, Any], *names: str, default: Any = "") -> Any:
+        for name in names:
+            value = row.get(name, None)
+            if value not in (None, ""):
+                return value
+        return default
+
+    records: list[PRRecord] = []
+    for _, raw_row in df.iterrows():
+        row = raw_row.to_dict()
+        title = _first(row, "title", "comment", default="")
+        body = _first(row, "body", "comment", default=title)
+        records.append(
+            apply_schema(
+                {
+                    "pr_id": _first(row, "pr_id", "id", default=""),
+                    "repo_name": _first(row, "repo_name", "repo", default=""),
+                    "language": _first(row, "language", "lang", default=""),
+                    "title": title,
+                    "body": body,
+                    "state": _first(row, "state", default="open"),
+                    "created_at": _first(row, "created_at", "date", default=""),
+                    "merged_at": _first(row, "merged_at", default=""),
+                    "additions": _first(row, "additions", "size", default=""),
+                    "deletions": _first(row, "deletions", default=0),
+                    "changed_files": _first(row, "changed_files", default=1),
+                }
+            )
+        )
+
+    return tuple(records)
 
 
 def _capitalize_clarity(value: str) -> str:
@@ -376,7 +336,7 @@ def load_uploaded(
     keep the immutable tuple alongside the DataFrame so downstream steps
     (LLM enrichment, pure filters) can operate on it. Otherwise treat it as
     a flat display CSV (the demo dataset shape) and return only the
-    DataFrame.
+    DataFrame when it cannot be mapped back to PRRecord.
     """
     raw = file.read()
     text = raw.decode("utf-8", errors="replace")
@@ -387,4 +347,5 @@ def load_uploaded(
         return prs_to_dataframe(prs), prs
 
     df = pd.read_csv(StringIO(text))
-    return df, None
+    prs = dataframe_to_prs(df)
+    return df, prs or None

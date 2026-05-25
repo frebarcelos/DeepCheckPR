@@ -25,4 +25,7 @@ COPY . .
 
 EXPOSE 8501
 
+ENV PYTHONPATH=/app/src
+ENV OLLAMA_HOST=http://host.docker.internal:11434
+
 CMD ["streamlit", "run", "src/pr_analyzer/ui/app.py", "--server.address=0.0.0.0"]
