@@ -155,7 +155,10 @@ def _read_adapted_rows(
 ) -> Generator[dict[str, object], None, None]:
     with open(filepath, encoding=encoding, newline="") as csv_file:
         reader = csv.DictReader(csv_file)
-        adapter = schema_adapter(detect_schema(reader.fieldnames or ()))
+        schema_name = detect_schema(reader.fieldnames or ())
+        if schema_name == "unknown":
+            return
+        adapter = schema_adapter(schema_name)
         yield from map(adapter, reader)
 
 
