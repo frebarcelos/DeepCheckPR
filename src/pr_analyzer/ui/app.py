@@ -35,6 +35,7 @@ from components.tabs import (  # noqa: E402
 from utils.constants import APP_NAME, APP_VERSION  # noqa: E402
 from utils.data import apply_filters, get_mock_data  # noqa: E402
 from utils.pipeline_bridge import (  # noqa: E402
+    dataframe_to_prs,
     enrich_prs,
     enriched_to_dataframe,
 )
@@ -76,18 +77,20 @@ def _maybe_enrich() -> None:
         st.session_state.llm_enriched = False
         return
     if st.session_state.raw_prs is None:
-        st.session_state.llm_enriched = False
-        st.warning(
-            "Classificação LLM requer um CSV no formato PRRecord "
-            "(colunas: `pr_id`, `repo_name`, `body`…). "
-            "O dataset atual usa dados simulados — faça upload de um CSV compatível.",
-            icon="⚠️",
-        )
-        return
+        prs = dataframe_to_prs(st.session_state.df)
+        if not prs:
+            st.session_state.llm_enriched = False
+            st.warning(
+                "Classificação LLM requer pelo menos as colunas `id`, `repo` e `lang`. "
+                "Faça upload de um CSV compatível ou carregue um dataset local.",
+                icon="⚠️",
+            )
+            return
+    else:
+        prs = st.session_state.raw_prs
+
     if st.session_state.llm_enriched:
         return
-
-    prs = st.session_state.raw_prs
     n = len(prs)
     backend = st.session_state.get("llm_backend", "groq")
     model = st.session_state.get("ollama_model", os.environ.get("LLM_MODEL", "llama3"))

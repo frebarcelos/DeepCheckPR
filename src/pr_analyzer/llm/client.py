@@ -33,16 +33,52 @@ def create_groq_client() -> LLMClient:
     return Agent(model=Groq(id=model_id, api_key=api_key))  # type: ignore[no-any-return]
 
 
+class _OllamaDirectClient:
+    """Cliente HTTP direto para Ollama usando apenas stdlib (urllib).
+
+    Não depende do SDK ollama nem do agno.models.ollama (que exige openai).
+    """
+
+    def __init__(self, model: str, host: str) -> None:
+        self._model = model
+        self._host = host.rstrip("/")
+
+    def run(self, message: str, **_: Any) -> Any:
+        import json
+        import urllib.request
+
+        payload = json.dumps(
+            {
+                "model": self._model,
+                "messages": [{"role": "user", "content": message}],
+                "stream": False,
+            }
+        ).encode()
+        req = urllib.request.Request(
+            f"{self._host}/api/chat",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            data: dict[str, Any] = json.loads(resp.read().decode())
+
+        text = data.get("message", {}).get("content", "")
+
+        class _Resp:
+            def __init__(self, t: str) -> None:
+                self.content = t
+
+        return _Resp(text)
+
+
 def create_ollama_client(model: str = "llama3") -> LLMClient:
-    """Cria agente Agno apontando para Ollama (host configurável via OLLAMA_HOST).
+    """Cria cliente direto para Ollama via SDK ollama (sem agno.models.ollama).
 
     Dentro do Docker no Linux, defina OLLAMA_HOST=http://host.docker.internal:11434.
     Localmente, o padrão http://localhost:11434 já funciona.
     """
-    from agno.models.ollama import Ollama  # import tardio — dependência opcional
-
     host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-    return Agent(model=Ollama(id=model, host=host))  # type: ignore[no-any-return]
+    return _OllamaDirectClient(model=model, host=host)
 
 
 def create_llm_client() -> LLMClient:

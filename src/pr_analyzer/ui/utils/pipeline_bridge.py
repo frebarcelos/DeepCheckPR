@@ -222,8 +222,12 @@ def prs_to_dataframe(prs: Iterable[PRRecord]) -> pd.DataFrame:
 def dataframe_to_prs(df: pd.DataFrame) -> tuple[PRRecord, ...]:
     """Best-effort conversion from a displayed DataFrame back to PRRecords.
 
-    Supports canonical PR schemas and the mined-comments UI shape. Returns an
-    empty tuple when the frame cannot be mapped safely.
+    Supports three schemas:
+    - canonical:      pr_id, repo_name, language, title, state
+    - mined_comments: id, repo, lang, comment
+    - flat_ui:        id, repo, lang  (mock/display format, body synthesized)
+
+    Returns an empty tuple only when none of the three schemas match.
     """
     if df is None or len(df) == 0:
         return ()
@@ -231,8 +235,13 @@ def dataframe_to_prs(df: pd.DataFrame) -> tuple[PRRecord, ...]:
     columns = {str(c) for c in df.columns}
     canonical = {"pr_id", "repo_name", "language", "title", "state"}
     mined_comments = {"id", "repo", "lang", "comment"}
+    flat_ui = {"id", "repo", "lang"}
 
-    if not (canonical.issubset(columns) or mined_comments.issubset(columns)):
+    if not (
+        canonical.issubset(columns)
+        or mined_comments.issubset(columns)
+        or flat_ui.issubset(columns)
+    ):
         return ()
 
     def _first(row: Mapping[str, Any], *names: str, default: Any = "") -> Any:
@@ -245,15 +254,16 @@ def dataframe_to_prs(df: pd.DataFrame) -> tuple[PRRecord, ...]:
     records: list[PRRecord] = []
     for _, raw_row in df.iterrows():
         row = raw_row.to_dict()
-        title = _first(row, "title", "comment", default="")
-        body = _first(row, "body", "comment", default=title)
+        # synthesize a title from nature/type when no explicit title or comment
+        synthetic_title = _first(row, "title", "comment", "nature", "type", default="")
+        body = _first(row, "body", "comment", default="")
         records.append(
             apply_schema(
                 {
                     "pr_id": _first(row, "pr_id", "id", default=""),
                     "repo_name": _first(row, "repo_name", "repo", default=""),
                     "language": _first(row, "language", "lang", default=""),
-                    "title": title,
+                    "title": synthetic_title,
                     "body": body,
                     "state": _first(row, "state", default="open"),
                     "created_at": _first(row, "created_at", "date", default=""),
