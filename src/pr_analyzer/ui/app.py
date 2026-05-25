@@ -35,7 +35,6 @@ from components.tabs import (  # noqa: E402
 from utils.constants import APP_NAME, APP_VERSION  # noqa: E402
 from utils.data import apply_filters, get_mock_data  # noqa: E402
 from utils.pipeline_bridge import (  # noqa: E402
-    CacheCounter,
     enrich_prs,
     enriched_to_dataframe,
 )
@@ -102,7 +101,6 @@ def _maybe_enrich() -> None:
         st.error(f"Erro ao conectar ao {backend.upper()}: {exc}")
         return
 
-    counter = CacheCounter()
     enriched_list = []
 
     with st.status(
@@ -111,21 +109,17 @@ def _maybe_enrich() -> None:
     ) as status:
         st.caption(f"Modelo: `{model}`")
         bar = st.progress(0.0)
-        for i, ep in enumerate(enrich_prs(prs, client=client, cache=counter), 1):
+        for i, ep in enumerate(enrich_prs(prs, client=client), 1):
             enriched_list.append(ep)
             bar.progress(i / n)
         status.update(
-            label=f"✓ {n} PRs classificados — {counter.cache_hits} do cache, {counter.calls_made} chamadas reais",
+            label=f"✓ {n} PRs classificados",
             state="complete",
             expanded=False,
         )
 
     st.session_state.df = enriched_to_dataframe(enriched_list)
-    st.session_state.llm_cache_stats = {
-        "cache_hits": counter.cache_hits,
-        "calls_made": counter.calls_made,
-        "total": counter.total,
-    }
+    st.session_state.llm_cache_stats = {"total": n, "cache_hits": 0, "calls_made": n}
     st.session_state.llm_enriched = True
 
 
