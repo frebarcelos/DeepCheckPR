@@ -15,10 +15,10 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-MAX_DATASET_SIZE_GB: float = float(os.environ.get("MAX_DATASET_SIZE_GB", "10"))
+# ─── Mock / demo dataset ─────────────────────────────────────────────────────
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False)  # type: ignore[misc]
 def get_mock_data() -> pd.DataFrame:
     """Return a small but representative demo DataFrame."""
     rows: list[dict[str, Any]] = [
@@ -89,62 +89,14 @@ def get_mock_data() -> pd.DataFrame:
 # ─── Loading from uploaded files ─────────────────────────────────────────────
 
 
-def _is_mined_comments(data: Any) -> bool:
-    """Return True when data matches the mined-comments archive shape.
-
-    Expected shape: { "owner/repo": [ {comment_dict}, ... ], ... }
-    """
-    if not isinstance(data, dict):
-        return False
-    sample = next(iter(data.values()), None)
-    return isinstance(sample, list)
-
-
-def _mined_comments_to_dataframe(data: dict[str, Any]) -> pd.DataFrame:
-    """Flatten a mined-comments dict into a UI-compatible DataFrame.
-
-    Re-uses the same _comment_row / heuristics that load_archive_sample uses,
-    so the display columns are identical whether the file came from upload or
-    from the local dataset picker.
-    """
-    rows: list[dict[str, Any]] = []
-    for repo_full, comments in data.items():
-        if not isinstance(comments, list):
-            continue
-        for c in comments:
-            file_path = str(c.get("path", ""))
-            body = str(c.get("body", ""))
-            lang_fallback = repo_full.split("/")[-1] if "/" in repo_full else repo_full
-            rows.append(
-                _comment_row(
-                    int(c.get("id", len(rows))),
-                    repo_full,
-                    file_path,
-                    body,
-                    lang_fallback,
-                )
-            )
-    if not rows:
-        return pd.DataFrame()
-    return pd.DataFrame(rows)
-
-
 def load_dataframe(file: BytesIO, filename: str) -> pd.DataFrame:
-    """Parse an uploaded file into a DataFrame.
-
-    Handles three JSON shapes:
-      - mined-comments archive: { "owner/repo": [{comment}, ...] }
-      - list of records:        [ {row}, ... ]
-      - flat dict:              { col: [values] }
-
+    """
+    Parse an uploaded file into a DataFrame.
     Raises ValueError with a descriptive message on failure.
     """
     try:
         if filename.endswith(".json"):
-            data = json.load(file)
-            if _is_mined_comments(data):
-                return _mined_comments_to_dataframe(data)
-            return pd.DataFrame(data)
+            return pd.DataFrame(json.load(file))
         return pd.read_csv(file)
     except Exception as exc:
         raise ValueError(f"Não foi possível ler '{filename}': {exc}") from exc
@@ -157,14 +109,27 @@ def apply_filters(
     df: pd.DataFrame,
     lang: str,
     nature: str,
+    proj_type: str = "Todas",
+    clarity: str = "Todas",
 ) -> pd.DataFrame:
     """Return a filtered copy of *df* without mutating the original."""
-    result = df.copy()
-    if lang != "Todas" and "lang" in result.columns:
-        result = result[result["lang"] == lang]
-    if nature != "Todas" and "nature" in result.columns:
-        result = result[result["nature"] == nature]
-    return result
+    from functools import reduce
+
+    active = tuple(
+        (col, val)
+        for col, val in (
+            ("lang", lang),
+            ("nature", nature),
+            ("type", proj_type),
+            ("clarity", clarity),
+        )
+        if val != "Todas"
+    )
+    return reduce(
+        lambda _df, cv: _df[_df[cv[0]] == cv[1]] if cv[0] in _df.columns else _df,
+        active,
+        df.copy(),
+    )
 
 
 # ─── Export helpers ───────────────────────────────────────────────────────────
@@ -199,37 +164,23 @@ _EXT_TO_LANG: dict[str, str] = {
 }
 
 
-def discover_datasets(
-    data_dir: str,
-    max_size_gb: float = MAX_DATASET_SIZE_GB,
-) -> list[dict[str, Any]]:
-    """Return available datasets in data_dir (top-level files + archive subdirs).
-
-    Files larger than max_size_gb are listed but flagged as oversized so the UI
-    can warn the user instead of silently skipping them.
-    """
+def discover_datasets(data_dir: str) -> list[dict[str, Any]]:
+    """Return available datasets in data_dir (top-level files + archive subdirs)."""
     base = Path(data_dir)
     if not base.is_dir():
         return []
 
     results: list[dict[str, Any]] = []
-    max_bytes = max_size_gb * 1024**3
 
     for entry in sorted(base.iterdir()):
         if entry.is_file() and entry.suffix in (".csv", ".json"):
-            size_bytes = entry.stat().st_size
-            mb = size_bytes / 1024**2
-            oversized = size_bytes > max_bytes
-            label = f"{entry.name}  ({mb:.1f} MB)"
-            if oversized:
-                label += f"  ⚠ >{max_size_gb:.0f} GB"
+            mb = entry.stat().st_size / 1024**2
             results.append(
                 {
-                    "label": label,
+                    "label": f"{entry.name}  ({mb:.1f} MB)",
                     "path": str(entry),
                     "format": entry.suffix.lstrip("."),
                     "lang": None,
-                    "oversized": oversized,
                 }
             )
 
@@ -238,22 +189,16 @@ def discover_datasets(
         for sub in sorted(archive.iterdir()):
             inner = sub / sub.name
             if sub.is_dir() and inner.is_file():
-                size_bytes = inner.stat().st_size
-                gb = size_bytes / 1024**3
-                oversized = size_bytes > max_bytes
+                gb = inner.stat().st_size / 1024**3
                 lang = sub.name.replace("mined-comments-25stars-25prs-", "").replace(
                     ".json", ""
                 )
-                label = f"{lang}  ({gb:.1f} GB · amostra)"
-                if oversized:
-                    label += f"  ⚠ >{max_size_gb:.0f} GB"
                 results.append(
                     {
-                        "label": label,
+                        "label": f"{lang}  ({gb:.1f} GB · amostra)",
                         "path": str(inner),
                         "format": "archive",
                         "lang": lang,
-                        "oversized": oversized,
                     }
                 )
 
@@ -270,7 +215,7 @@ def check_ollama(host: str) -> tuple[bool, list[str]]:
         return False, []
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False)  # type: ignore[misc]
 def load_archive_sample(
     path: str,
     lang: str,
@@ -350,16 +295,16 @@ def _clarity_heuristic(body: str) -> str:
 # ─── Filtering (pure transform) ──────────────────────────────────────────────
 
 
-def get_filter_options(df: pd.DataFrame) -> tuple[list[str], list[str]]:
-    """Return (lang_options, nature_options) including a 'Todas' sentinel."""
-    langs = (
-        ["Todas", *sorted(df["lang"].dropna().unique().tolist())]
-        if "lang" in df.columns
-        else ["Todas"]
-    )
-    natures = (
-        ["Todas", *sorted(df["nature"].dropna().unique().tolist())]
-        if "nature" in df.columns
-        else ["Todas"]
-    )
-    return langs, natures
+def get_filter_options(
+    df: pd.DataFrame,
+) -> tuple[list[str], list[str], list[str], list[str]]:
+    """Return (lang, nature, type, clarity) option lists including a 'Todas' sentinel."""
+
+    def _opts(col: str) -> list[str]:
+        return (
+            ["Todas", *sorted(df[col].dropna().unique().tolist())]
+            if col in df.columns
+            else ["Todas"]
+        )
+
+    return _opts("lang"), _opts("nature"), _opts("type"), _opts("clarity")
