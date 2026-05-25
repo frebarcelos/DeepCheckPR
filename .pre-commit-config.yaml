@@ -52,24 +52,19 @@ repos:
     hooks:
 
       # Verificador de paradigma funcional e boas práticas (AST)
-      # Analisa: loops imperativos, mutações in-place, I/O em módulos puros,
-      #          estado global mutável, funções longas, parâmetros sem tipo.
       - id: check-paradigm
         name: "Verificador de paradigma funcional e boas práticas"
         language: python
         entry: python -X utf8 scripts/check_paradigm.py
         types: [python]
-        # Roda em TODOS os .py modificados; o script decide quais regras aplicar
-        # com base no caminho do arquivo (puro vs. camada de efeito colateral)
 
       # Testes unitários básicos (sem cobertura) — roda no pre-push via Docker
-      # Separado do coverage-check para feedback mais rápido em caso de falha
       - id: pytest-unit
         name: "Testes unitários (sem integração)"
         language: system
         entry: docker compose run --rm -T app python -m pytest tests/ -m "not integration" --tb=short -q --no-header
         pass_filenames: false
-        stages: [pre-push]
+        stages: [push]
 
       # Cobertura mínima de testes: 80% — roda no pre-push via Docker
       - id: coverage-check
@@ -77,13 +72,12 @@ repos:
         language: system
         entry: docker compose run --rm -T app python -m pytest tests/ -m "not integration" --cov=src/pr_analyzer --cov-fail-under=80 --cov-report=term-missing --tb=short -q --no-header
         pass_filenames: false
-        stages: [pre-push]
+        stages: [push]
 
       # Revisão semântica via Claude API — roda no pre-push via Docker
-      # Requer ANTHROPIC_API_KEY no .env — se ausente, é ignorado (sem bloqueio).
       - id: claude-review
         name: "Revisao de codigo (regras locais)"
         language: system
         entry: docker compose run --rm -T app python scripts/claude_review.py
         pass_filenames: false
-        stages: [pre-push]
+        stages: [push]
