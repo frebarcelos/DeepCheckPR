@@ -173,7 +173,12 @@ def _load_local(dataset: dict[str, Any]) -> None:
             df = pd.read_csv(_io.BytesIO(raw))
     else:
         with open(path, encoding="utf-8") as jf:
-            df = pd.DataFrame(json.load(jf))
+            raw_json = json.load(jf)
+        if isinstance(raw_json, dict):
+            # formato mined-comments: {repo: [comentários]} — mesmo que os archives
+            df = load_archive_sample(path, lang=dataset.get("lang") or "")
+        else:
+            df = pd.DataFrame(raw_json)
 
     st.session_state.df = df
     st.session_state.raw_prs = raw_prs
