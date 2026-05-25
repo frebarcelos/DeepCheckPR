@@ -1,11 +1,12 @@
 """
-components/sidebar.py — Sidebar with branding, data source, LLM backend, pipeline toggles,
-and filters. Returns filter selections so app.py stays decoupled from widget state.
+components/sidebar.py — Sidebar with branding, data source, LLM backend, pipeline
+toggles, and filters. Returns filter selections so app.py stays decoupled from
+widget state.
 
-The "Classificação LLM" toggle (TASK-39) controls whether `enrich_prs` is
-applied to PRRecords coming from the functional pipeline. The result is
-surfaced back through st.session_state.llm_cache_stats so the explorer tab
-can show the "resultados do cache" indicator.
+The "Classificação LLM" toggle controls whether enrich_prs is applied to
+PRRecords coming from the functional pipeline. The result is surfaced back
+through st.session_state.llm_cache_stats so the explorer tab can show the
+"resultados do cache" indicator.
 """
 
 from __future__ import annotations
@@ -46,9 +47,6 @@ def render_sidebar() -> tuple[str, str, bool, bool, bool]:
         sel_lang, sel_nature = _render_filters()
 
     return sel_lang, sel_nature, cleaning, llm_tag, metrics
-
-
-# ── Private helpers ───────────────────────────────────────────────────────────
 
 
 def _render_brand() -> None:
@@ -116,22 +114,33 @@ def _render_file_status() -> None:
 
 
 def _handle_upload(uploaded: object) -> None:
-    """Route uploaded CSVs through the functional pipeline when possible."""
+    """Route uploaded CSVs through the functional pipeline when possible.
+
+    The Streamlit UploadedFile cursor may be at an arbitrary position after
+    widget rendering, so we always seek(0) and read into a fresh BytesIO
+    before passing to any parser — avoiding empty-read errors.
+    """
+    from io import BytesIO
+
     filename = getattr(uploaded, "name", "uploaded.csv")
     try:
+        if hasattr(uploaded, "seek"):
+            uploaded.seek(0)
+        raw_bytes: bytes = uploaded.read() if hasattr(uploaded, "read") else b""
+        buf = BytesIO(raw_bytes)
         if filename.endswith(".csv"):
-            df, prs = load_uploaded(uploaded, filename)
+            df, prs = load_uploaded(buf, filename)
             st.session_state.df = df
             st.session_state.raw_prs = prs
         else:
-            st.session_state.df = load_dataframe(uploaded, filename)
+            st.session_state.df = load_dataframe(buf, filename)
             st.session_state.raw_prs = None
         st.session_state.file_loaded = True
         st.session_state.fname = filename
         st.session_state.llm_cache_stats = None
         st.session_state.llm_enriched = False
-    except ValueError as exc:
-        st.error(str(exc))
+    except Exception as exc:
+        st.error(f'Não foi possível carregar "{filename}": {exc}')
 
 
 def _render_local_datasets() -> None:
@@ -139,7 +148,7 @@ def _render_local_datasets() -> None:
     if not datasets:
         return
 
-    with st.expander("DATASETS LOCAIS", expanded=False):
+    with st.expander("DATASETS LOCAIS", expanded=True):
         labels: list[str] = ["— selecionar —", *(d["label"] for d in datasets)]
         choice: str = st.selectbox(
             "Dataset local",
@@ -147,11 +156,16 @@ def _render_local_datasets() -> None:
             key="local_ds_select",
             label_visibility="collapsed",
         )
-        if choice != "— selecionar —" and st.button(
-            "Carregar", key="load_local_btn", use_container_width=True
-        ):
+        if choice != "— selecionar —":
             selected = next(d for d in datasets if d["label"] == choice)
-            _load_local(selected)
+            if selected.get("oversized"):
+                st.warning(
+                    f"Arquivo excede o limite configurado "
+                    f"({os.environ.get('MAX_DATASET_SIZE_GB', '10')} GB). "
+                    "Ajuste MAX_DATASET_SIZE_GB no .env para carregar."
+                )
+            elif st.button("Carregar", key="load_local_btn", use_container_width=True):
+                _load_local(selected)
 
 
 def _load_local(dataset: dict[str, Any]) -> None:
@@ -182,9 +196,6 @@ def _load_local(dataset: dict[str, Any]) -> None:
     st.session_state.llm_enriched = False
     st.session_state.llm_cache_stats = None
     st.rerun()
-
-
-# ── LLM backend ───────────────────────────────────────────────────────────────
 
 
 def _render_llm_backend() -> None:
@@ -254,22 +265,38 @@ def _render_ollama_panel() -> None:
 def _render_ollama_setup(host: str) -> None:
     st.markdown(
         "<p style='font-size:10px;font-weight:700;color:#a1a1aa;margin:.5rem 0 .25rem;'>"
-        "Como configurar:</p>",
+        "Como configurar (Docker):</p>",
         unsafe_allow_html=True,
     )
-    st.markdown("1. Instale em **ollama.com**")
+    st.markdown("1. Instale o Ollama em **ollama.com**")
     st.markdown("2. Baixe um modelo:")
     st.code("ollama pull llama3", language="bash")
-    st.markdown("3. Inicie o servidor:")
-    st.code("ollama serve", language="bash")
-    if "host.docker.internal" not in host and "localhost" in host:
-        st.info(
-            "No Docker, defina no `.env`:\n"
-            "`OLLAMA_HOST=http://host.docker.internal:11434`"
+    st.markdown("3. Faça o Ollama escutar em todas as interfaces:")
+    st.code(
+        "sudo tee /etc/systemd/system/ollama.service.d/override.conf <<'EOF'\n"
+        "[Service]\n"
+        'Environment="OLLAMA_HOST=0.0.0.0"\n'
+        "EOF\n"
+        "sudo systemctl daemon-reload && sudo systemctl restart ollama",
+        language="bash",
+    )
+    st.markdown("4. Configure o `.env` do projeto:")
+    st.code(
+        "LLM_BACKEND=ollama\n"
+        "OLLAMA_HOST=http://host.docker.internal:11434\n"
+        "LLM_MODEL=llama3",
+        language="bash",
+    )
+    st.info(
+        "O `host.docker.internal` é resolvido automaticamente pelo Docker "
+        "via `extra_hosts` no `docker-compose.yml`. Certifique-se de que o "
+        "Ollama está escutando em `0.0.0.0` (passo 3) antes de iniciar o container."
+    )
+    if "localhost" in host and "host.docker.internal" not in host:
+        st.warning(
+            "Host atual aponta para `localhost`, que dentro do container "
+            "não alcança o Ollama do host. Atualize `OLLAMA_HOST` no `.env`."
         )
-
-
-# ── Pipeline toggles ──────────────────────────────────────────────────────────
 
 
 def _render_pipeline() -> tuple[bool, bool, bool]:
@@ -296,9 +323,6 @@ def _render_cache_indicator() -> None:
         f" {hits} hits · {misses} chamadas reais</div>",
         unsafe_allow_html=True,
     )
-
-
-# ── Filters ───────────────────────────────────────────────────────────────────
 
 
 def _render_filters() -> tuple[str, str]:

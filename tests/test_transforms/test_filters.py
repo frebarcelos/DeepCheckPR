@@ -117,3 +117,59 @@ def test_combine_filters_empty() -> None:
     pr = DummyPR(state="OPEN", language="Python")
     predicate = combine_filters()
     assert predicate(pr)
+
+
+def test_by_state_missing_attr() -> None:
+    pr = DummyPR(state=None)  # type: ignore
+    predicate = by_state("open")
+    assert not predicate(pr)
+
+    # testing without attribute
+    class NoStatePR:
+        pass
+
+    assert not predicate(NoStatePR())
+
+
+def test_by_language_missing_attr() -> None:
+    pr = DummyPR(language=None)  # type: ignore
+    predicate = by_language("python")
+    assert not predicate(pr)
+
+    class NoLangPR:
+        pass
+
+    assert not predicate(NoLangPR())
+
+
+def test_by_date_range_missing_attr() -> None:
+    pr = DummyPR(created_at=None)  # type: ignore
+    predicate = by_date_range("2023-05-01", "2023-05-31")
+    assert not predicate(pr)
+
+    class NoDatePR:
+        pass
+
+    assert not predicate(NoDatePR())
+
+
+def test_with_non_empty_body_missing_attr() -> None:
+    pr = DummyPR(body=None)  # type: ignore
+    predicate = with_non_empty_body()
+    assert not predicate(pr)
+
+    class NoBodyPR:
+        pass
+
+    assert not predicate(NoBodyPR())
+
+
+def test_with_min_size_type_error() -> None:
+    pr = DummyPR(additions="many", deletions=None)  # type: ignore
+    predicate = with_min_size(10)
+    assert not predicate(pr)
+
+    class NoSizePR:
+        pass
+
+    assert not predicate(NoSizePR())
