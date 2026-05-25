@@ -2,14 +2,19 @@ services:
   app:
     build: .
     ports:
-      - "8501:8501"         # Streamlit UI
+      - "8501:8501"
     volumes:
-      - .:/app              # hot-reload: edições locais refletem no container
-      - ./data:/app/data    # dataset CSV montado separadamente
-      - ./cache:/app/cache  # cache LLM persistido entre sessões
+      - .:/app
+      - ./data:/app/data
+      - ./cache:/app/cache
     env_file:
       - .env
-    command: streamlit run src/pr_analyzer/ui/app.py --server.address=0.0.0.0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: >
+      streamlit run src/pr_analyzer/ui/app.py
+      --server.address=0.0.0.0
+      --server.maxUploadSize=${MAX_UPLOAD_SIZE_MB:-10240}
 
   test:
     build: .
@@ -19,7 +24,7 @@ services:
       - .env
     command: pytest tests/ -m "not integration" --tb=short -q
     profiles:
-      - test               # executa apenas com: docker compose --profile test up test
+      - test
 
   lint:
     build: .

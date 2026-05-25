@@ -182,8 +182,8 @@ data/*.json
 data/*.gz
 data/*.zip
 
-# Resultados de análise persistidos localmente
-cache/
+# Resultados de análise persistidos localmente (só o diretório raiz)
+/cache/
 
 # PyPI configuration file
 .pypirc
