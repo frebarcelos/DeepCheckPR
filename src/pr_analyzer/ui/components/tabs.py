@@ -15,6 +15,8 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 from components.charts import (
+    render_body_size_chart,
+    render_clarity_cross_chart,
     render_clarity_distribution,
     render_clarity_gauge,
     render_lang_distribution,
@@ -57,6 +59,8 @@ def render_tab_dashboard(df: pd.DataFrame, metrics_active: bool) -> None:
     _render_distribution_row_bottom(distributions)
     st.markdown("<br>", unsafe_allow_html=True)
     _render_correlation_row(df)
+    st.markdown("<br>", unsafe_allow_html=True)
+    _render_analysis_row(df)
 
 
 def _render_distribution_row_top(distributions: dict[str, dict[str, int]]) -> None:
@@ -83,6 +87,14 @@ def _render_correlation_row(df: pd.DataFrame) -> None:
         render_scatter_chart(df)
     with col_gauge:
         render_clarity_gauge(df)
+
+
+def _render_analysis_row(df: pd.DataFrame) -> None:
+    col_size, col_cross = st.columns(2, gap="large")
+    with col_size:
+        render_body_size_chart(df)
+    with col_cross:
+        render_clarity_cross_chart(df)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

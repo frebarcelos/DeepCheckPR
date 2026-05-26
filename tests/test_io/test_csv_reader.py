@@ -224,6 +224,48 @@ def test_read_prs_filters_malformed_rows(tmp_path: Path) -> None:
     ]
 
 
+def test_read_prs_returns_empty_for_empty_csv(tmp_path: Path) -> None:
+    csv_file = tmp_path / "vazio.csv"
+    csv_file.write_text("", encoding="utf-8")
+
+    assert list(read_prs(csv_file)) == []
+
+
+def test_read_prs_returns_empty_for_header_only_csv(tmp_path: Path) -> None:
+    csv_file = tmp_path / "apenas_cabecalho.csv"
+    csv_file.write_text(
+        "pr_id,repo_name,language,title,body,state,created_at,merged_at,additions,deletions,changed_files\n",
+        encoding="utf-8",
+    )
+
+    assert list(read_prs(csv_file)) == []
+
+
+def test_read_prs_ignores_unexpected_extra_fields(tmp_path: Path) -> None:
+    csv_file = tmp_path / "campos_extras.csv"
+    csv_file.write_text(
+        "pr_id,repo_name,language,title,body,state,created_at,merged_at,additions,deletions,changed_files,reviewers,labels\n"
+        "9,owner/repo,Python,Com extras,Body,open,2026-05-04T10:00:00Z,,6,2,1,ana;bia,backend\n",
+        encoding="utf-8",
+    )
+
+    assert list(read_prs(csv_file)) == [
+        PRRecord(
+            pr_id=9,
+            repo_name="owner/repo",
+            language="python",
+            title="Com extras",
+            body="Body",
+            state="open",
+            created_at="2026-05-04T10:00:00Z",
+            merged_at="",
+            additions=6,
+            deletions=2,
+            changed_files=1,
+        )
+    ]
+
+
 def test_read_prs_supports_latin_1_csv(tmp_path: Path) -> None:
     csv_file = tmp_path / "prs_latin1.csv"
     csv_file.write_text(

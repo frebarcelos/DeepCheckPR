@@ -1,3 +1,5 @@
+import pytest
+
 from pr_analyzer.io.csv_reader import PRRecord
 from pr_analyzer.pipeline.builder import (
     EnrichedPR,
@@ -5,6 +7,7 @@ from pr_analyzer.pipeline.builder import (
     compose,
     enrich_pipeline,
     pipe,
+    pipeline_from_env,
     stats_pipeline,
 )
 
@@ -216,3 +219,113 @@ def test_stats_pipeline_is_lazy() -> None:
     pipeline = stats_pipeline(iter([_make_pr(), _make_pr()]))
     assert not isinstance(pipeline, list | tuple)
     next(iter(pipeline))
+
+
+# ── pipeline_from_env (ISSUE-46) ──────────────────────────────────────────────
+
+
+def _make_pr_state(state: str, additions: int = 5, deletions: int = 2) -> PRRecord:
+    return PRRecord(
+        pr_id=1,
+        repo_name="org/repo",
+        language="python",
+        title="Fix bug",
+        body="Body.",
+        state=state,
+        created_at="2024-01-01",
+        merged_at="2024-01-02",
+        additions=additions,
+        deletions=deletions,
+        changed_files=1,
+    )
+
+
+def test_pipeline_from_env_sem_vars_passa_tudo(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("FILTER_STATE", raising=False)
+    monkeypatch.delenv("MIN_CHANGES", raising=False)
+    monkeypatch.delenv("ENABLE_LLM", raising=False)
+    prs = [_make_pr_state("merged"), _make_pr_state("open")]
+    assert list(pipeline_from_env(iter(prs))) == prs
+
+
+def test_pipeline_from_env_filter_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FILTER_STATE", "merged")
+    monkeypatch.delenv("MIN_CHANGES", raising=False)
+    monkeypatch.delenv("ENABLE_LLM", raising=False)
+    prs = [_make_pr_state("merged"), _make_pr_state("open")]
+    result = list(pipeline_from_env(iter(prs)))
+    assert len(result) == 1
+    assert result[0].state == "merged"
+
+
+def test_pipeline_from_env_min_changes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("FILTER_STATE", raising=False)
+    monkeypatch.setenv("MIN_CHANGES", "10")
+    monkeypatch.delenv("ENABLE_LLM", raising=False)
+    prs = [
+        _make_pr_state("merged", additions=3, deletions=2),
+        _make_pr_state("merged", additions=8, deletions=5),
+    ]
+    result = list(pipeline_from_env(iter(prs)))
+    assert len(result) == 1
+    assert (result[0].additions or 0) + (result[0].deletions or 0) >= 10
+
+
+def test_pipeline_from_env_filtros_combinados(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FILTER_STATE", "merged")
+    monkeypatch.setenv("MIN_CHANGES", "10")
+    monkeypatch.delenv("ENABLE_LLM", raising=False)
+    prs = [
+        _make_pr_state("merged", additions=8, deletions=5),
+        _make_pr_state("merged", additions=2, deletions=1),
+        _make_pr_state("open", additions=8, deletions=5),
+    ]
+    result = list(pipeline_from_env(iter(prs)))
+    assert len(result) == 1
+    assert result[0].state == "merged"
+
+
+def test_pipeline_from_env_enable_llm_com_fn(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("FILTER_STATE", raising=False)
+    monkeypatch.delenv("MIN_CHANGES", raising=False)
+    monkeypatch.setenv("ENABLE_LLM", "true")
+    pr = _make_pr_state("merged")
+    result = list(pipeline_from_env(iter([pr]), classify_fn=_classify))
+    assert isinstance(result[0], EnrichedPR)
+
+
+def test_pipeline_from_env_enable_llm_sem_fn_nao_aplica(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("FILTER_STATE", raising=False)
+    monkeypatch.delenv("MIN_CHANGES", raising=False)
+    monkeypatch.setenv("ENABLE_LLM", "true")
+    pr = _make_pr_state("merged")
+    result = list(pipeline_from_env(iter([pr])))
+    assert result[0] == pr
+
+
+def test_pipeline_from_env_enable_llm_false_ignora_fn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("FILTER_STATE", raising=False)
+    monkeypatch.delenv("MIN_CHANGES", raising=False)
+    monkeypatch.setenv("ENABLE_LLM", "false")
+    pr = _make_pr_state("merged")
+    result = list(pipeline_from_env(iter([pr]), classify_fn=_classify))
+    assert result[0] == pr
+
+
+def test_pipeline_from_env_e_lazy(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("FILTER_STATE", raising=False)
+    monkeypatch.delenv("MIN_CHANGES", raising=False)
+    monkeypatch.delenv("ENABLE_LLM", raising=False)
+    result = pipeline_from_env(iter([_make_pr_state("merged")]))
+    assert not isinstance(result, list | tuple)
+
+
+def test_pipeline_from_env_source_vazio(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FILTER_STATE", "merged")
+    monkeypatch.setenv("MIN_CHANGES", "5")
+    monkeypatch.delenv("ENABLE_LLM", raising=False)
+    assert list(pipeline_from_env(iter([]))) == []

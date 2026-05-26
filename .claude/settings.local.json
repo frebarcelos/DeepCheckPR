@@ -44,7 +44,11 @@
       "Bash(git remote *)",
       "Bash(ssh -T -o ConnectTimeout=5 git@github.com)",
       "Bash(docker compose *)",
-      "Bash(git merge *)"
+      "Bash(git merge *)",
+      "Bash(ls C:\\\\Users\\\\ResTIC16\\\\Documents\\\\EngSOFT\\\\RP3_PROBLEMA_2\\\\marco_2_RP3\\\\marco-2-rp3\\\\.git\\\\hooks\\\\pre-commit 2>&1 && git -C \"C:\\\\Users\\\\ResTIC16\\\\Documents\\\\EngSOFT\\\\RP3_PROBLEMA_2\\\\marco_2_RP3\\\\marco-2-rp3\" status && git -C \"C:\\\\Users\\\\ResTIC16\\\\Documents\\\\EngSOFT\\\\RP3_PROBLEMA_2\\\\marco_2_RP3\\\\marco-2-rp3\" diff --stat)",
+      "Bash(cd \"C:/Users/ResTIC16/Documents/EngSOFT/RP3_PROBLEMA_2/marco_2_RP3/marco-2-rp3\" && pre-commit install && pre-commit install --hook-type commit-msg && pre-commit install --hook-type pre-push && ls .git/hooks/pre-commit)",
+      "Bash(docker run --rm -v __CMDSUB_OUTPUT__/src:/app/src -v __CMDSUB_OUTPUT__/data:/app/data --add-host=host.docker.internal:host-gateway marco-2-rp3-app python3 -c ' *)",
+      "Bash(ollama list *)"
     ]
   }
 }

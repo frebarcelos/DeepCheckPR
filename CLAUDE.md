@@ -3,7 +3,7 @@
 ## Identidade do Projeto
 
 Ferramenta de análise de Pull Requests do GitHub usando **paradigma funcional** em Python 3.11+.
-Disciplina AL0337 — Linguagens de Programação, UNIPAMPA, Sprint 3 em andamento.
+Disciplina AL0337 — Linguagens de Programação, UNIPAMPA, Sprint 4 concluída (2026-05-25), Sprint 5 — Otimizações LLM concluída (2026-05-26).
 5 desenvolvedores (dev1–dev5), TDD obrigatório, pre-commits rigorosos.
 
 ## Arquitetura de Módulos
@@ -12,8 +12,8 @@ Disciplina AL0337 — Linguagens de Programação, UNIPAMPA, Sprint 3 em andamen
 |---|---|---|---|
 | `src/pr_analyzer/io/` | dev1 | Efeito colateral | Leitura lazy do CSV via geradores; exportadores |
 | `src/pr_analyzer/transforms/` | dev2 | **PURO** | `filter()`, `map()`, `reduce()` sobre PRRecords |
-| `src/pr_analyzer/llm/` | dev3 | Efeito colateral | Chamadas Agno/Groq para classificação semântica |
-| `src/pr_analyzer/cache/` | dev4 | Misto | `hashlib` + `lru_cache` + persistência JSON |
+| `src/pr_analyzer/llm/` | dev3 | Efeito colateral | Chamadas Groq/Ollama; async, batch, retry, metrics, system_probe |
+| `src/pr_analyzer/cache/` | dev4 | Misto | `hashlib` + `lru_cache` + persistência JSON ou SQLite |
 | `src/pr_analyzer/pipeline/` | dev4 | **PURO** | `compose()`, `build_pipeline()`, HOFs |
 | `src/pr_analyzer/ui/` | dev5 | Efeito colateral | Streamlit: upload, filtros, gráficos, download |
 
@@ -91,12 +91,13 @@ def test_filter_by_state_does_not_raise(state: str) -> None:
 ## Estrutura de Branches
 
 ```
-main          ← protegido, só aceita PR revisado por 1 colega
-├── dev/dev1  ← módulo io/
-├── dev/dev2  ← módulo transforms/
-├── dev/dev3  ← módulo llm/
-├── dev/dev4  ← módulos cache/ e pipeline/
-└── dev/dev5  ← módulo ui/ + integração
+main               ← protegido, só aceita PR revisado por 1 colega
+develop            ← integração entre sprints
+├── bernardo       ← módulo io/  (dev1)
+├── pedro          ← módulo transforms/  (dev2)
+├── dev/dev3       ← módulo llm/  (dev3/Dean)
+├── frederico-barcelos ← módulos cache/ e pipeline/  (dev4)
+└── diogo          ← módulo ui/ + integração  (dev5)
 ```
 
 - Commits até **domingo 23:59** para a verificação semanal
@@ -104,13 +105,14 @@ main          ← protegido, só aceita PR revisado por 1 colega
 
 ## Cronograma de Fases
 
-| Fase | Verificação | Meta de Cobertura |
-|---|---|---|
-| 1 — Estrutura base | 04/05/2026 | Módulo do dev funciona |
-| 2 — Transformações | 11/05/2026 | >50% |
-| 3 — LLM + Pipeline | 18/05/2026 | >65% |
-| 4 — UI + Integração | 25/05/2026 | **≥80%** |
-| Entrega Final | 01/06/2026 | ≥80% |
+| Fase | Verificação | Meta de Cobertura | Status |
+|---|---|---|---|
+| 1 — Estrutura base | 04/05/2026 | Módulo do dev funciona | ✅ Concluída |
+| 2 — Transformações | 11/05/2026 | >50% | ✅ Concluída |
+| 3 — LLM + Pipeline | 18/05/2026 | >65% | ✅ Concluída |
+| 4 — UI + Integração | 25/05/2026 | **≥80%** | ✅ Concluída |
+| 5 — Otimizações LLM | 26/05/2026 | ≥80% | ✅ Concluída (87%) |
+| Entrega Final | 01/06/2026 | ≥80% | — |
 
 ## Padrão de Mensagem de Commit (OBRIGATÓRIO)
 
@@ -223,6 +225,76 @@ A sidebar exibe automaticamente os arquivos encontrados em `data/`:
 
 Para os archives (6–11 GB por linguagem), o carregamento usa streaming via `ijson` e retorna uma amostra de 2.000 comentários. A classificação `nature`/`clarity` nessa amostra é heurística (palavras-chave + tamanho do corpo) — a integração com LLM real é tarefa futura da Sprint 4 (dev4 + dev5).
 
+## Hierarquia de Importações (OBRIGATÓRIO)
+
+Para evitar imports circulares, respeite estritamente a direção das dependências:
+
+```
+io/csv_reader  ←  transforms/mappers  ←  transforms/reducers
+                                               ↑
+                                        pipeline/builder (re-exporta EnrichedPR)
+                                               ↑
+                                         cache/memo
+                                               ↑
+                                         llm/classifiers
+                                               ↑
+                                          ui/utils/
+```
+
+**Regras derivadas:**
+- `transforms/` **nunca** importa de `pipeline/`, `cache/`, `llm/` ou `ui/`
+- `pipeline/` **nunca** importa de `cache/`, `llm/` ou `ui/`
+- `cache/` **nunca** importa de `llm/` ou `ui/`
+
+### `EnrichedPR` — localização canônica
+
+`EnrichedPR` é definido **somente** em `src/pr_analyzer/transforms/reducers.py` como `NamedTuple`. Todos os outros módulos importam de lá:
+
+```python
+# CORRETO — em pipeline/, cache/, llm/, ui/:
+from pr_analyzer.transforms.reducers import EnrichedPR
+# ou via re-exportação do pipeline:
+from pr_analyzer.pipeline.builder import EnrichedPR
+
+# ERRADO — nunca redefina EnrichedPR como @dataclass ou NamedTuple local
+```
+
+Motivo: definir `EnrichedPR` em `pipeline/builder` e importar de `transforms/reducers` (que já importa de `pipeline/builder`) cria import circular. A ordem correta é `reducers` define → `builder` importa.
+
+### Aliases em inglês em `classifiers.py`
+
+`classifiers.py` expõe aliases em inglês no final do arquivo para compatibilidade com `pipeline_bridge.py` e outros módulos:
+
+```python
+classify_project_type = classificar_tipo_projeto
+classify_contribution_nature = classificar_natureza_contribuicao
+classify_description_clarity = avaliar_clareza_descricao
+```
+
+Qualquer nova função em `llm/classifiers.py` deve ter tanto o nome em português quanto o alias em inglês.
+
+### BP005 se aplica a `ui/` também
+
+Constantes globais mutáveis (`dict`, `list`) bloqueiam o commit em **todos** os arquivos `src/`, incluindo `ui/`. Use funções retornando o valor ou `tuple`/`frozenset`:
+
+```python
+# ERRADO — bloqueia mesmo em ui/:
+_CHART_CFG = {"displayModeBar": False}
+
+# CORRETO:
+def _chart_cfg() -> dict[str, bool]:
+    return {"displayModeBar": False}
+```
+
+### `st.cache_data` e mypy strict
+
+O decorator `@st.cache_data` não tem stubs completos e causa `error: Untyped decorator makes function ... untyped [misc]`. Use:
+
+```python
+@st.cache_data(show_spinner=False)  # type: ignore[misc]
+def get_mock_data() -> pd.DataFrame:
+```
+
 ## Protocolo de Merge Entre Sprints (OBRIGATÓRIO)
 
 Ao final de cada sprint, o fluxo de integração é:
@@ -242,12 +314,14 @@ Ao final de cada sprint, o fluxo de integração é:
 ### Ordem de merge recomendada (menor → maior risco de conflito)
 
 ```
-bernardo   → develop   (io/ — leitura CSV, isolado)
-pedro      → develop   (transforms/ — funções puras, isolado)
-dev/dev3   → develop   (llm/ — módulo próprio)
-frederico-barcelos → develop  (cache/ + pipeline/)
-diogo      → develop   (ui/ — mais dependências)
+bernardo           → develop   (io/ — leitura CSV, isolado)
+pedro              → develop   (transforms/ — funções puras, isolado)
+dev/dev3           → develop   (llm/ — módulo próprio)
+frederico-barcelos → develop   (cache/ + pipeline/ — integra com transforms)
+diogo              → develop   (ui/ — depende de todos os anteriores)
 ```
+
+O PR do Diogo deve ser aberto **somente após** os de Bernardo, Pedro e Dean, porque o `pipeline_bridge.py` tem `try/except ImportError` que resolve para as implementações reais quando elas estão em `develop`.
 
 Após todos em `develop`:
 ```
@@ -258,6 +332,19 @@ develop → frederico-barcelos
 develop → diogo
 ```
 
+### Verificação pós-merge
+
+Depois que todos os PRs entrarem em `develop`:
+```bash
+make docker-test   # confirma que imports, testes e cobertura passam com o código integrado
+```
+
+Erros comuns de integração e suas correções:
+- **Import circular** → verifique a hierarquia de importações acima; `transforms/` nunca deve importar de `pipeline/`
+- **Tipo incompatível com `EnrichedPR`** → confirme que todos usam `from pr_analyzer.transforms.reducers import EnrichedPR`
+- **Conflito de merge não resolvido** → verifique conflict markers com `grep -rn "<<<<<<" src/`
+- **BP005 em `ui/`** → dicts e lists globais viram funções
+
 ## Regras de Commit e Push (OBRIGATÓRIO)
 
 ### Para commits
@@ -265,7 +352,7 @@ develop → diogo
 - **Nunca commitar se o pre-commit não passar.** Qualquer falha em ruff, mypy, check-paradigm ou conventional-pre-commit bloqueia o commit até ser corrigida.
 
 ### Para push
-- **Push é sempre feito pelo usuário, nunca pela IA.** O assistente pode criar commits locais, mas `git push` é responsabilidade exclusiva do desenvolvedor.
+- **Push e merge de PRs são operações do desenvolvedor.** O assistente cria commits locais e pode abrir PRs via `gh`, mas `git push` e `gh pr merge` requerem autorização explícita do desenvolvedor para cada sessão.
 
 ## O que NUNCA fazer
 

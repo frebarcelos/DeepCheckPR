@@ -109,14 +109,27 @@ def apply_filters(
     df: pd.DataFrame,
     lang: str,
     nature: str,
+    proj_type: str = "Todas",
+    clarity: str = "Todas",
 ) -> pd.DataFrame:
     """Return a filtered copy of *df* without mutating the original."""
-    result = df.copy()
-    if lang != "Todas" and "lang" in result.columns:
-        result = result[result["lang"] == lang]
-    if nature != "Todas" and "nature" in result.columns:
-        result = result[result["nature"] == nature]
-    return result
+    from functools import reduce
+
+    active = tuple(
+        (col, val)
+        for col, val in (
+            ("lang", lang),
+            ("nature", nature),
+            ("type", proj_type),
+            ("clarity", clarity),
+        )
+        if val != "Todas"
+    )
+    return reduce(
+        lambda _df, cv: _df[_df[cv[0]] == cv[1]] if cv[0] in _df.columns else _df,
+        active,
+        df.copy(),
+    )
 
 
 # ─── Export helpers ───────────────────────────────────────────────────────────
@@ -282,16 +295,16 @@ def _clarity_heuristic(body: str) -> str:
 # ─── Filtering (pure transform) ──────────────────────────────────────────────
 
 
-def get_filter_options(df: pd.DataFrame) -> tuple[list[str], list[str]]:
-    """Return (lang_options, nature_options) including a 'Todas' sentinel."""
-    langs = (
-        ["Todas", *sorted(df["lang"].dropna().unique().tolist())]
-        if "lang" in df.columns
-        else ["Todas"]
-    )
-    natures = (
-        ["Todas", *sorted(df["nature"].dropna().unique().tolist())]
-        if "nature" in df.columns
-        else ["Todas"]
-    )
-    return langs, natures
+def get_filter_options(
+    df: pd.DataFrame,
+) -> tuple[list[str], list[str], list[str], list[str]]:
+    """Return (lang, nature, type, clarity) option lists including a 'Todas' sentinel."""
+
+    def _opts(col: str) -> list[str]:
+        return (
+            ["Todas", *sorted(df[col].dropna().unique().tolist())]
+            if col in df.columns
+            else ["Todas"]
+        )
+
+    return _opts("lang"), _opts("nature"), _opts("type"), _opts("clarity")

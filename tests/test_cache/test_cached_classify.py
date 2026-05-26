@@ -107,3 +107,63 @@ def test_make_enriched_classifier_persists_cache(tmp_path: Path) -> None:
         cache_path=cache_file,
     )(_make_pr())
     type_fn.assert_not_called()
+
+
+# ── SQLite backend ────────────────────────────────────────────────────────────
+
+
+def test_make_enriched_classifier_sqlite_retorna_enriched_pr(tmp_path: Path) -> None:
+    result = make_enriched_classifier(
+        _make_classifier("biblioteca"),
+        _make_classifier("bug fix"),
+        _make_classifier("boa"),
+        cache_path=tmp_path / "cache.db",
+        cache_backend="sqlite",
+    )(_make_pr())
+    assert isinstance(result, EnrichedPR)
+    assert result.project_type == "biblioteca"
+    assert result.contribution_nature == "bug fix"
+    assert result.description_clarity == "boa"
+
+
+def test_make_enriched_classifier_sqlite_persiste_entre_instancias(
+    tmp_path: Path,
+) -> None:
+    db = tmp_path / "cache.db"
+    type_fn = _make_classifier("ferramenta")
+
+    make_enriched_classifier(
+        type_fn,
+        _make_classifier("feature"),
+        _make_classifier("boa"),
+        cache_path=db,
+        cache_backend="sqlite",
+    )(_make_pr())
+    type_fn.reset_mock()
+
+    make_enriched_classifier(
+        type_fn,
+        _make_classifier("feature"),
+        _make_classifier("boa"),
+        cache_path=db,
+        cache_backend="sqlite",
+    )(_make_pr())
+    type_fn.assert_not_called()
+
+
+def test_make_enriched_classifier_sqlite_usa_cache_por_campo(tmp_path: Path) -> None:
+    db = tmp_path / "cache.db"
+    type_fn = _make_classifier("biblioteca")
+    nature_fn = _make_classifier("feature")
+    clarity_fn = _make_classifier("boa")
+
+    classify = make_enriched_classifier(
+        type_fn, nature_fn, clarity_fn, cache_path=db, cache_backend="sqlite"
+    )
+    pr = _make_pr()
+    classify(pr)
+    classify(pr)
+
+    type_fn.assert_called_once()
+    nature_fn.assert_called_once()
+    clarity_fn.assert_called_once()
