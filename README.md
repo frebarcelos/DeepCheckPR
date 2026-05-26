@@ -63,6 +63,10 @@ ui/ (Streamlit)        ← upload, filtros, gráficos, export (dev5)
 | Cache SQLite persistente entre containers | LLM-10 | ✅ |
 | Métricas de throughput e fallback rate | LLM-06 | ✅ |
 | Auto-detecção de hardware (CPU/RAM/GPU) | system_probe | ✅ |
+| **Result-cache cross-sessão**: PR já classificado não é reclassificado | v6 | ✅ |
+| **Seletor de escala** com estimativas de tempo (500/2k/10k/50k) | v6 | ✅ |
+| **"Todas as bases"**: carrega e concatena todos os datasets em data/ | v6 | ✅ |
+| **`pipeline-all`**: processa dataset completo sem limite via CLI | v6 | ✅ |
 
 ---
 
@@ -196,7 +200,7 @@ make test                  # testes unitários
 make docker-test           # roda pytest dentro do Docker com cobertura ≥80%
 ```
 
-Cobertura por módulo (Sprint 5 — 2026-05-26):
+Cobertura por módulo (v6.0.0 — 2026-05-26):
 
 | Módulo | Cobertura |
 |---|---|
@@ -204,10 +208,10 @@ Cobertura por módulo (Sprint 5 — 2026-05-26):
 | `pipeline/` | ~100% |
 | `cache/` | ~100% |
 | `io/` | ~100% |
-| `llm/classifiers.py` | ~92% |
+| `llm/classifiers.py` | ~94% |
 | `llm/metrics.py` | 100% |
 | `llm/system_probe.py` | ~39% (I/O — mockado intencionalmente) |
-| **Total** | **87%** |
+| **Total** | **88%** |
 
 Os testes em `transforms/` e `pipeline/` usam **Hypothesis** para property-based testing:
 
@@ -220,10 +224,11 @@ def test_filter_by_state_does_not_raise(state: str) -> None:
 
 ---
 
-## Otimizações de Performance (Sprint 5)
+## Otimizações de Performance (Sprint 5 + v6)
 
 O pipeline com `llama3` (4.7 GB) processava ~2000 PRs em **~5h** sequencialmente.
 Após as otimizações com `qwen2:1.5b` + todas as flags ativas: **~12 min**.
+Com result-cache SQLite (v6): execuções repetidas nos mesmos dados → **instantâneo**.
 
 | Otimização | Módulo | Ganho |
 |---|---|---|
@@ -237,6 +242,7 @@ Após as otimizações com `qwen2:1.5b` + todas as flags ativas: **~12 min**.
 | SQLite cache persistente (WAL) | `cache/sqlite_store.py` | Cache sobrevive ao Docker rebuild |
 | Auto-detecção de hardware | `llm/system_probe.py` | Workers/batch ajustados ao hardware |
 | Métricas de observabilidade | `llm/metrics.py` | Throughput, fallback rate em tempo real |
+| **Result-cache cross-sessão** | `llm/classifiers.py` | PRs já classificados: 0 chamadas LLM |
 
 ### Configuração recomendada para máxima velocidade (Ollama)
 
@@ -383,4 +389,5 @@ feature branch → PR → develop → PR → main
 | 3 — LLM + Pipeline | 18/05/2026 | >65% | ✅ |
 | 4 — UI + Integração | 25/05/2026 | **≥80%** | ✅ |
 | 5 — Otimizações LLM | 26/05/2026 | ≥80% | ✅ (87%) |
+| 6 — Persistência + UI | 26/05/2026 | ≥80% | ✅ (88%) |
 | Entrega Final | 01/06/2026 | ≥80% | — |

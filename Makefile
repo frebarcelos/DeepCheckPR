@@ -1,4 +1,4 @@
-.PHONY: hooks setup run test lint format docker-build docker-run docker-test pipeline
+.PHONY: hooks setup run test lint format docker-build docker-run docker-test pipeline pipeline-all
 
 # Instala apenas pre-commit e os git hooks — mínimo para quem usa Docker
 # Pré-requisito (uma vez): sudo apt install pipx && pipx ensurepath
@@ -42,9 +42,15 @@ docker-test:
 	docker compose run --rm -T app python -m pytest tests/ -m "not integration" --tb=short -q --no-header
 
 # Pipeline completo: dataset (CSV ou JSON) → LLM → output.json
-# Uso: make pipeline DATASET=data/arquivo.json OUTPUT=output.json LIMIT=10
+# Uso: make pipeline DATASET=data/arquivo.json OUTPUT=output.json LIMIT=100
+# Uso: make pipeline-all DATASET=data/arquivo.json OUTPUT=output.json
 DATASET ?= $(DATASET_PATH)
 OUTPUT  ?= output.json
-LIMIT   ?= 10
+LIMIT   ?= 100
 pipeline:
 	docker compose run --rm app python3 scripts/run_pipeline.py "$(DATASET)" "$(OUTPUT)" $(LIMIT)
+
+# Processa TODOS os registros do dataset (limit=0 → sem limite)
+# Uso: make pipeline-all DATASET=data/Python.json OUTPUT=output/python_all.json
+pipeline-all:
+	docker compose run --rm app python3 scripts/run_pipeline.py "$(DATASET)" "$(OUTPUT)" 0

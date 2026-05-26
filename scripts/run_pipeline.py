@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI para testar o pipeline completo (dataset → LLM → JSON) sem depender da UI.
+"""CLI para processar dataset completo via pipeline LLM otimizado.
 
 Suporta dois formatos de entrada:
   - CSV  com colunas PRRecord (pr_id, repo_name, language, title, body, ...)
@@ -8,13 +8,25 @@ Suporta dois formatos de entrada:
 Uso:
     python scripts/run_pipeline.py <dataset> <output.json> [limit]
 
-Exemplos:
-    LLM_BACKEND=ollama python scripts/run_pipeline.py data/archive/.../Python.json out.json 5
-    LLM_BACKEND=ollama LLM_MODEL=mistral python scripts/run_pipeline.py data.csv out.json 20
+    limit=0 (padrão) → processa TODOS os registros do arquivo
+    limit=N          → processa os primeiros N registros
 
-Variáveis de ambiente:
-    LLM_BACKEND   groq (padrão) | ollama
-    LLM_MODEL     modelo (padrão: llama3-8b-8192 para Groq / llama3 para Ollama)
+Exemplos:
+    # Processa tudo com auto-detecção de hardware
+    LLM_MAX_WORKERS=auto LLM_USE_TOOLS=true LLM_BATCH_SIZE=5 \\
+        python scripts/run_pipeline.py data/Python.json out.json
+
+    # Processa amostra de 500 com Ollama
+    LLM_BACKEND=ollama LLM_MODEL=qwen2:1.5b \\
+        python scripts/run_pipeline.py data/Python.json out.json 500
+
+Variáveis de ambiente relevantes:
+    LLM_BACKEND          groq (padrão) | ollama
+    LLM_MODEL            modelo (llama3-8b-8192 para Groq / qwen2:1.5b para Ollama)
+    LLM_MAX_WORKERS      número de threads paralelas | auto (detecta hardware)
+    LLM_USE_TOOLS        true | false — tool calling (1 chamada/PR em vez de 3)
+    LLM_BATCH_SIZE       PRs por chamada batch (requer LLM_USE_TOOLS=true)
+    LLM_MAX_RETRIES      tentativas de retry em falha (padrão: 3)
 """
 
 import json
@@ -29,15 +41,11 @@ load_dotenv()
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from pr_analyzer.cache.memo import make_enriched_classifier  # noqa: E402
 from pr_analyzer.io.csv_reader import PRRecord, read_prs  # noqa: E402
-from pr_analyzer.llm.classifiers import (  # noqa: E402
-    avaliar_clareza_descricao,
-    classificar_natureza_contribuicao,
-    classificar_tipo_projeto,
-)
+from pr_analyzer.llm.classifiers import enrich_prs  # noqa: E402
 from pr_analyzer.llm.client import create_llm_client  # noqa: E402
-from pr_analyzer.pipeline.builder import enrich_pipeline  # noqa: E402
+from pr_analyzer.llm.metrics import ClassificationMetrics  # noqa: E402
+from pr_analyzer.llm.system_probe import load_pipeline_config  # noqa: E402
 
 
 def _language_from_path(filepath: str) -> str:
@@ -49,14 +57,13 @@ def _language_from_path(filepath: str) -> str:
 
 
 def read_mined_comments(filepath: str, limit: int) -> Generator[PRRecord, None, None]:
-    """Lê o formato mined-comments via streaming (ijson) — não carrega o arquivo inteiro."""
+    """Lê mined-comments via streaming (ijson). limit=0 → sem limite."""
     language = _language_from_path(filepath)
     count = 0
     with open(filepath, "rb") as f:
-        # itera sobre cada item de cada array: "repo_name.item"
         for repo_name, comment in ijson.kvitems(f, ""):
             for c in comment:
-                if count >= limit:
+                if limit > 0 and count >= limit:
                     return
                 body = str(c.get("body") or "").strip()
                 title = str(c.get("path") or repo_name).strip()
@@ -77,30 +84,55 @@ def read_mined_comments(filepath: str, limit: int) -> Generator[PRRecord, None, 
 
 
 def load_prs(filepath: str, limit: int) -> list[PRRecord]:
+    """Carrega PRRecords do arquivo. limit=0 → todos os registros."""
     if filepath.endswith(".json"):
-        print(f"  Formato: mined-comments JSON (streaming, lendo {limit} registros...)")
+        desc = f"lendo {limit} registros" if limit > 0 else "lendo TUDO (sem limite)"
+        print(f"  Formato: mined-comments JSON (streaming, {desc})...")
         return list(read_mined_comments(filepath, limit))
-    print(f"  Formato: CSV PRRecord (lendo {limit} registros...)")
-    return list(read_prs(filepath))[:limit]
+    desc = f"primeiros {limit}" if limit > 0 else "todos"
+    print(f"  Formato: CSV PRRecord ({desc} registros)...")
+    prs = list(read_prs(filepath))
+    return prs[:limit] if limit > 0 else prs
 
 
-def main(dataset_path: str, output_path: str, limit: int = 10) -> None:
-    print(f"Carregando dados de '{dataset_path}'...")
+def main(dataset_path: str, output_path: str, limit: int = 0) -> None:
+    print(f"\nCarregando '{dataset_path}'...")
     prs = load_prs(dataset_path, limit)
     print(f"  {len(prs)} registros carregados.")
 
-    print("Criando cliente LLM...")
-    client = create_llm_client()
-
-    classify_fn = make_enriched_classifier(
-        lambda repo, title: classificar_tipo_projeto(repo, [title], client),
-        lambda title, body: classificar_natureza_contribuicao(title, body, client),
-        lambda body: avaliar_clareza_descricao(body, client),
-        cache_path=Path(".cache/pipeline.json"),
+    cfg = load_pipeline_config()
+    max_workers = int(cfg["max_workers"])
+    use_tools = bool(cfg["use_tools"])
+    batch_size = int(cfg["batch_size"])
+    print(
+        f"  Config: workers={max_workers} | use_tools={use_tools} | batch_size={batch_size}"
     )
 
-    print("Classificando (pode demorar na primeira vez)...")
-    results = list(enrich_pipeline(prs, classify_fn))
+    client = create_llm_client()
+    metrics = ClassificationMetrics()
+
+    print("Classificando (LLM — pode demorar na primeira vez)...")
+    results = list(
+        enrich_prs(
+            prs,
+            client,
+            cache_path=Path(".cache/pipeline.json"),
+            max_workers=max_workers,
+            use_tools=use_tools,
+            batch_size=batch_size,
+            metrics=metrics,
+        )
+    )
+
+    print(f"\n  Throughput : {metrics.throughput_prs_per_min:.1f} PRs/min")
+    print(f"  Total time : {metrics.total_time_s:.1f}s")
+    if metrics.batch_calls:
+        print(
+            f"  Fallback   : {metrics.fallback_rate:.1%} ({metrics.batch_fallbacks}/{metrics.batch_calls} batches)"
+        )
+    for field, counts in metrics.value_counts.items():
+        top = sorted(counts.items(), key=lambda x: -x[1])[:3]
+        print(f"  {field}: {dict(top)}")
 
     output = [
         {
@@ -119,13 +151,14 @@ def main(dataset_path: str, output_path: str, limit: int = 10) -> None:
     Path(output_path).write_text(
         json.dumps(output, indent=2, ensure_ascii=False), encoding="utf-8"
     )
-    print(f"✓ {len(output)} registros processados → '{output_path}'")
+    print(f"\n✓ {len(output)} registros → '{output_path}'")
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Uso: python scripts/run_pipeline.py <dataset> <output.json> [limit=10]")
+        print("Uso: python scripts/run_pipeline.py <dataset> <output.json> [limit=0]")
+        print("     limit=0 processa TODOS os registros")
         sys.exit(1)
 
-    _limit = int(sys.argv[3]) if len(sys.argv) > 3 else 10
+    _limit = int(sys.argv[3]) if len(sys.argv) > 3 else 0
     main(sys.argv[1], sys.argv[2], _limit)

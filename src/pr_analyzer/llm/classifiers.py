@@ -16,7 +16,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from pr_analyzer.cache.memo import make_enriched_classifier
+from pr_analyzer.cache.memo import make_cache_key, make_enriched_classifier
+from pr_analyzer.cache.sqlite_store import SqliteKVStore
 from pr_analyzer.io.csv_reader import PRRecord
 from pr_analyzer.llm.client import AsyncLLMClient, LLMClient
 from pr_analyzer.llm.metrics import ClassificationMetrics
@@ -709,6 +710,56 @@ def _run_cached(
     return map(classify, prs)
 
 
+def _result_store(cache_path: Path | None) -> SqliteKVStore | None:
+    """Deriva um SqliteKVStore para o result-cache a partir de cache_path."""
+    if cache_path is None:
+        return None
+    return SqliteKVStore(cache_path.with_suffix(".db"), "pr_results")
+
+
+def _split_cached(
+    pr_list: list[PRRecord],
+    store: SqliteKVStore | None,
+) -> tuple[list[EnrichedPR], list[PRRecord]]:
+    """Separa PRs já classificados (cache hit) dos que precisam de LLM."""
+    if store is None:
+        return [], pr_list
+    hits: list[EnrichedPR] = []
+    misses: list[PRRecord] = []
+    for pr in pr_list:
+        raw = store.get(make_cache_key(pr.title, pr.body[:500]))
+        if raw is not None:
+            data: dict[str, str] = json.loads(raw)
+            hits.append(
+                EnrichedPR(
+                    pr=pr,
+                    project_type=data["project_type"],
+                    contribution_nature=data["contribution_nature"],
+                    description_clarity=data["description_clarity"],
+                )
+            )
+        else:
+            misses.append(pr)
+    return hits, misses
+
+
+def _write_cached(results: list[EnrichedPR], store: SqliteKVStore | None) -> None:
+    """Persiste classificações no result-cache SQLite."""
+    if store is None:
+        return
+    for ep in results:
+        store.set(
+            make_cache_key(ep.pr.title, ep.pr.body[:500]),
+            json.dumps(
+                {
+                    "project_type": ep.project_type,
+                    "contribution_nature": ep.contribution_nature,
+                    "description_clarity": ep.description_clarity,
+                }
+            ),
+        )
+
+
 def enrich_prs(
     prs: Iterable[PRRecord],
     client: LLMClient,
@@ -729,32 +780,59 @@ def enrich_prs(
     Args:
         prs: iterável de PRRecords a enriquecer.
         client: cliente LLM configurado.
-        cache_path: caminho base para cache em disco (ignorado com use_tools=True).
+        cache_path: caminho base para cache em disco. Deriva automaticamente um
+            SQLite result-cache (.db) para todos os modos (tools e não-tools).
         max_workers: número de threads paralelas (1 = serial/lazy para não-batch).
         use_tools: usa tool calling (requer qwen2:1.5b, phi3, llama3.1+).
         batch_size: PRs por chamada LLM quando use_tools=True (1 = individual).
         metrics: objeto de métricas a atualizar em-place (LLM-06); None = sem coleta.
 
     Returns:
-        Iterável de EnrichedPR (lazy só com use_tools=False, max_workers=1, metrics=None).
+        Iterável de EnrichedPR (lazy só quando cache_path=None, use_tools=False,
+        max_workers=1, metrics=None).
     """
     _start = time.monotonic()
+    _store = _result_store(cache_path)
+    pr_list = list(prs)
+    cached, uncached = _split_cached(pr_list, _store)
+
+    if metrics is not None:
+        metrics.cache_hits += len(cached)
+
+    if not uncached:
+        return cached
+
     if use_tools and batch_size > 1:
-        pr_list = list(prs)
         if max_workers > 1:
-            return _record_metrics(
-                _run_batch_parallel(pr_list, client, batch_size, max_workers, metrics),
+            new: list[EnrichedPR] = _record_metrics(
+                _run_batch_parallel(uncached, client, batch_size, max_workers, metrics),
                 metrics,
                 _start,
             )
-        return _record_metrics(
-            _run_adaptive_batch(pr_list, client, batch_size, metrics), metrics, _start
-        )
+        else:
+            new = _record_metrics(
+                _run_adaptive_batch(uncached, client, batch_size, metrics),
+                metrics,
+                _start,
+            )
+        _write_cached(new, _store)
+        return cached + new
+
     if use_tools:
-        return _record_metrics(
-            _run_tools_single(list(prs), client, max_workers), metrics, _start
+        new = _record_metrics(
+            _run_tools_single(uncached, client, max_workers), metrics, _start
         )
-    return _run_cached(prs, client, cache_path, max_workers, metrics, _start)
+        _write_cached(new, _store)
+        return cached + new
+
+    if _store is not None:
+        new = list(
+            _run_cached(uncached, client, cache_path, max_workers, metrics, _start)
+        )
+        _write_cached(new, _store)
+        return cached + new
+
+    return _run_cached(uncached, client, cache_path, max_workers, metrics, _start)
 
 
 # ── safe_classify HOF (TASK-44) ───────────────────────────────────────────────

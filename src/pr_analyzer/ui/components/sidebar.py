@@ -28,6 +28,15 @@ from utils.pipeline_bridge import (
     load_uploaded,
 )
 
+# Escalas de carregamento: (label_ui, max_records, estimativa_groq, estimativa_ollama)
+# Groq free + tools + batch=5: ~150 PR/min  |  Ollama qwen2:1.5b 4w: ~80 PR/min
+_RECORD_SCALES: tuple[tuple[str, int, str, str], ...] = (
+    ("500  (amostra rapida)", 500, "~3 min", "~6 min"),
+    ("2 000  (demo padrao)", 2_000, "~13 min", "~25 min"),
+    ("10 000  (analise)", 10_000, "~1 h", "~2 h"),
+    ("50 000  (corpus parcial)", 50_000, "~6 h", "~10 h"),
+)
+
 
 def render_sidebar() -> tuple[str, str, str, str, bool, bool, bool]:
     """
@@ -140,7 +149,23 @@ def _render_local_datasets() -> None:
         return
 
     with st.expander("DATASETS LOCAIS", expanded=False):
-        labels: list[str] = ["— selecionar —", *(d["label"] for d in datasets)]
+        scale_labels: tuple[str, ...] = tuple(lbl for lbl, *_ in _RECORD_SCALES)
+        scale_choice: str = st.selectbox(
+            "Escala de registros",
+            scale_labels,
+            index=1,
+            key="record_scale",
+        )
+        _, max_records, est_groq, est_ollama = next(
+            t for t in _RECORD_SCALES if t[0] == scale_choice
+        )
+        st.caption(f"LLM: ~{est_groq} Groq+tools  |  ~{est_ollama} Ollama 4w")
+
+        labels: list[str] = [
+            "— selecionar —",
+            "Todas as bases",
+            *(d["label"] for d in datasets),
+        ]
         choice: str = st.selectbox(
             "Dataset local",
             labels,
@@ -150,19 +175,25 @@ def _render_local_datasets() -> None:
         if choice != "— selecionar —" and st.button(
             "Carregar", key="load_local_btn", use_container_width=True
         ):
-            selected = next(d for d in datasets if d["label"] == choice)
-            _load_local(selected)
+            if choice == "Todas as bases":
+                _load_all_datasets(datasets, max_records)
+            else:
+                selected = next(d for d in datasets if d["label"] == choice)
+                _load_local(selected, max_records)
 
 
-def _load_local(dataset: dict[str, Any]) -> None:
+def _load_local(dataset: dict[str, Any], max_records: int = 2000) -> None:
     fmt: str = dataset["format"]
     path: str = dataset["path"]
 
     raw_prs = None
     if fmt == "archive":
         lang = str(dataset.get("lang", ""))
-        with st.spinner(f"Amostrando {lang} (2 000 registros)…"):
-            df = load_archive_sample(path, lang)
+        label = (
+            "todos os registros" if max_records == 0 else f"{max_records:,} registros"
+        )
+        with st.spinner(f"Carregando {lang} ({label})…"):
+            df = load_archive_sample(path, lang, max_records)
     elif fmt == "csv":
         import io as _io
 
@@ -175,8 +206,9 @@ def _load_local(dataset: dict[str, Any]) -> None:
         with open(path, encoding="utf-8") as jf:
             raw_json = json.load(jf)
         if isinstance(raw_json, dict):
-            # formato mined-comments: {repo: [comentários]} — mesmo que os archives
-            df = load_archive_sample(path, lang=dataset.get("lang") or "")
+            df = load_archive_sample(
+                path, lang=dataset.get("lang") or "", max_records=max_records
+            )
         else:
             df = pd.DataFrame(raw_json)
 
@@ -184,6 +216,37 @@ def _load_local(dataset: dict[str, Any]) -> None:
     st.session_state.raw_prs = raw_prs
     st.session_state.file_loaded = True
     st.session_state.fname = dataset["label"]
+    st.session_state.llm_enriched = False
+    st.session_state.llm_cache_stats = None
+    st.rerun()
+
+
+def _load_all_datasets(datasets: list[dict[str, Any]], max_records: int = 2000) -> None:
+    frames: list[pd.DataFrame] = []
+    label = "todos os registros" if max_records == 0 else f"{max_records:,} por base"
+    with st.spinner(f"Carregando todas as bases ({label})…"):
+        for ds in datasets:
+            fmt: str = ds["format"]
+            path: str = ds["path"]
+            if fmt in ("archive", "json"):
+                lang = str(ds.get("lang", ""))
+                frames.append(load_archive_sample(path, lang, max_records))
+            elif fmt == "csv":
+                import io as _io
+
+                with open(path, "rb") as f:
+                    raw = f.read()
+                df_csv, _ = load_uploaded(_io.BytesIO(raw), path.split("/")[-1])
+                frames.append(df_csv)
+
+    if not frames:
+        return
+
+    combined = pd.concat(frames, ignore_index=True)
+    st.session_state.df = combined
+    st.session_state.raw_prs = None
+    st.session_state.file_loaded = True
+    st.session_state.fname = "Todas as bases"
     st.session_state.llm_enriched = False
     st.session_state.llm_cache_stats = None
     st.rerun()
