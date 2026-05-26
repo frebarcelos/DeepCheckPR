@@ -22,15 +22,20 @@ transforms/            ← filter / map / reduce puros, sem I/O (dev2)
   filters.py           ← by_state, by_language, with_min_size, combine_filters
   mappers.py           ← normalize_language, normalize_state
   reducers.py          ← count_by_language, count_by_project_type, EnrichedPR
+  heuristics.py        ← pré-classificação por keywords (sem LLM)
     │
     ▼
 pipeline/builder.py    ← compose(), build_pipeline(), pipeline_from_env() (dev4)
     │
     ▼
-cache/memo.py          ← SHA-256 + LRU + persistência JSON (dev4)
+cache/memo.py          ← SHA-256 + LRU + persistência JSON ou SQLite (dev4)
+cache/sqlite_store.py  ← SqliteKVStore WAL + thread-safe (dev4)
     │
     ▼
-llm/classifiers.py     ← project_type / contribution_nature / clarity via Groq|Ollama (dev3)
+llm/classifiers.py     ← enrich_prs async/batch/tools via Groq|Ollama (dev3)
+llm/client.py          ← HTTP keep-alive, retry com backoff exponencial
+llm/metrics.py         ← ClassificationMetrics: throughput, fallback rate
+llm/system_probe.py    ← auto-detecção CPU/RAM/GPU → PipelineConfig ideal
     │
     ▼
 ui/ (Streamlit)        ← upload, filtros, gráficos, export (dev5)
@@ -52,6 +57,12 @@ ui/ (Streamlit)        ← upload, filtros, gráficos, export (dev5)
 | Filtros de tipo de projeto e clareza na sidebar | US08 | ✅ |
 | Cache SHA-256 + LRU com persistência JSON | RG04 | ✅ |
 | Pipeline configurável por variáveis de ambiente | RG06 | ✅ |
+| Heurísticas de pré-classificação (sem LLM) | LLM-04 | ✅ |
+| Cliente async + batch + retry com backoff | LLM-01/02/07 | ✅ |
+| HTTP keep-alive por thread | LLM-03 | ✅ |
+| Cache SQLite persistente entre containers | LLM-10 | ✅ |
+| Métricas de throughput e fallback rate | LLM-06 | ✅ |
+| Auto-detecção de hardware (CPU/RAM/GPU) | system_probe | ✅ |
 
 ---
 
@@ -60,9 +71,9 @@ ui/ (Streamlit)        ← upload, filtros, gráficos, export (dev5)
 | Módulo | Dev | Tipo | Responsabilidade |
 |---|---|---|---|
 | `src/pr_analyzer/io/` | dev1 (Bernardo) | Efeito colateral | Leitura lazy CSV via `yield`; exportadores |
-| `src/pr_analyzer/transforms/` | dev2 (Pedro) | **Puro** | `filter()`, `map()`, `reduce()` sobre PRRecords |
-| `src/pr_analyzer/llm/` | dev3 (Dean) | Efeito colateral | Chamadas Agno/Groq para classificação semântica |
-| `src/pr_analyzer/cache/` | dev4 (Frederico) | Misto | `hashlib` + `lru_cache` + persistência JSON |
+| `src/pr_analyzer/transforms/` | dev2 (Pedro) | **Puro** | `filter()`, `map()`, `reduce()`; `heuristics.py` (keywords) |
+| `src/pr_analyzer/llm/` | dev3 (Dean) | Efeito colateral | Groq/Ollama async+batch+tools; `metrics.py`; `system_probe.py` |
+| `src/pr_analyzer/cache/` | dev4 (Frederico) | Misto | `hashlib` + LRU JSON; `sqlite_store.py` WAL persistente |
 | `src/pr_analyzer/pipeline/` | dev4 (Frederico) | **Puro** | `compose()`, `build_pipeline()`, HOFs |
 | `src/pr_analyzer/ui/` | dev5 (Diogo) | Efeito colateral | Streamlit: upload, filtros, gráficos, download |
 
@@ -112,6 +123,14 @@ make docker-run            # Streamlit em http://localhost:8501
 | `DATASET` | — | Caminho do CSV para o pipeline CLI |
 | `OUTPUT` | — | Caminho de saída JSON do pipeline CLI |
 | `LIMIT` | `100` | Número máximo de registros no pipeline CLI |
+| **Otimizações de throughput** | | |
+| `LLM_MAX_WORKERS` | `auto` | Threads paralelas (`auto` detecta hardware, número fixo sobrescreve) |
+| `LLM_USE_TOOLS` | `false` | Tool calling: 1 chamada/PR em vez de 3 (requer modelo compatível) |
+| `LLM_BATCH_SIZE` | `1` | PRs por chamada batch (5–10 com `qwen2:1.5b`, 1 = individual) |
+| `LLM_MAX_RETRIES` | `3` | Tentativas de retry em falha de conexão |
+| `LLM_RETRY_BASE_DELAY` | `1.0` | Delay base do backoff exponencial (segundos) |
+| `LLM_BODY_CHARS_SINGLE` | `400` | Caracteres do body em chamadas individuais |
+| `LLM_BODY_CHARS_BATCH` | `100` | Caracteres do body em chamadas batch (prompt compacto) |
 
 ---
 
@@ -177,16 +196,18 @@ make test                  # testes unitários
 make docker-test           # roda pytest dentro do Docker com cobertura ≥80%
 ```
 
-Cobertura por módulo (Sprint 4):
+Cobertura por módulo (Sprint 5 — 2026-05-26):
 
 | Módulo | Cobertura |
 |---|---|
-| `transforms/` | ~95% |
-| `pipeline/` | ~90% |
-| `cache/` | ~85% |
-| `io/` | ~80% |
-| `llm/` | ~80% |
-| **Total** | **≥80%** |
+| `transforms/` | ~100% |
+| `pipeline/` | ~100% |
+| `cache/` | ~100% |
+| `io/` | ~100% |
+| `llm/classifiers.py` | ~92% |
+| `llm/metrics.py` | 100% |
+| `llm/system_probe.py` | ~39% (I/O — mockado intencionalmente) |
+| **Total** | **87%** |
 
 Os testes em `transforms/` e `pipeline/` usam **Hypothesis** para property-based testing:
 
@@ -195,6 +216,36 @@ Os testes em `transforms/` e `pipeline/` usam **Hypothesis** para property-based
 def test_filter_by_state_does_not_raise(state: str) -> None:
     predicate = filter_by_state(state)
     assert callable(predicate)
+```
+
+---
+
+## Otimizações de Performance (Sprint 5)
+
+O pipeline com `llama3` (4.7 GB) processava ~2000 PRs em **~5h** sequencialmente.
+Após as otimizações com `qwen2:1.5b` + todas as flags ativas: **~12 min**.
+
+| Otimização | Módulo | Ganho |
+|---|---|---|
+| Async HTTP (`asyncio.gather`) | `llm/classifiers.py` | 2–4× throughput |
+| Adaptive batch size | `llm/classifiers.py` | Elimina fallbacks caros |
+| HTTP keep-alive por thread | `llm/client.py` | 5–15% latência |
+| Heurísticas de pré-classificação | `transforms/heuristics.py` | 10–30% chamadas eliminadas |
+| Cache de tipo por repositório | `llm/classifiers.py` | ~33% menos tokens |
+| Prompt compression (body truncado) | `llm/classifiers.py` | 10–20% menos tokens |
+| Retry com backoff exponencial | `llm/client.py` | Resiliência a timeouts |
+| SQLite cache persistente (WAL) | `cache/sqlite_store.py` | Cache sobrevive ao Docker rebuild |
+| Auto-detecção de hardware | `llm/system_probe.py` | Workers/batch ajustados ao hardware |
+| Métricas de observabilidade | `llm/metrics.py` | Throughput, fallback rate em tempo real |
+
+### Configuração recomendada para máxima velocidade (Ollama)
+
+```bash
+LLM_BACKEND=ollama
+LLM_MODEL=qwen2:1.5b        # ollama pull qwen2:1.5b
+LLM_MAX_WORKERS=auto         # detecta CPU/RAM/GPU automaticamente
+LLM_USE_TOOLS=true
+LLM_BATCH_SIZE=5
 ```
 
 ---
@@ -244,10 +295,14 @@ marco-2-rp3/
 │   │   ├── mappers.py
 │   │   └── reducers.py  # define EnrichedPR (NamedTuple canônico)
 │   ├── llm/             # dev3 — classificação Groq/Ollama
-│   │   ├── client.py
-│   │   └── classifiers.py
-│   ├── cache/           # dev4 — SHA-256 + LRU + JSON
-│   │   └── memo.py
+│   │   ├── client.py        # HTTP keep-alive, retry backoff, async
+│   │   ├── classifiers.py   # enrich_prs async/batch/tools/heuristics
+│   │   ├── metrics.py       # ClassificationMetrics: throughput, fallbacks
+│   │   ├── skills.py        # system prompt + few-shot examples
+│   │   └── system_probe.py  # auto-detecção CPU/RAM/GPU → PipelineConfig
+│   ├── cache/           # dev4 — SHA-256 + LRU + JSON/SQLite
+│   │   ├── memo.py          # cached_classify + make_enriched_classifier
+│   │   └── sqlite_store.py  # SqliteKVStore WAL thread-safe
 │   ├── pipeline/        # dev4 — compose, build_pipeline (PURO)
 │   │   └── builder.py
 │   └── ui/              # dev5 — Streamlit
@@ -327,4 +382,5 @@ feature branch → PR → develop → PR → main
 | 2 — Transformações | 11/05/2026 | >50% | ✅ |
 | 3 — LLM + Pipeline | 18/05/2026 | >65% | ✅ |
 | 4 — UI + Integração | 25/05/2026 | **≥80%** | ✅ |
+| 5 — Otimizações LLM | 26/05/2026 | ≥80% | ✅ (87%) |
 | Entrega Final | 01/06/2026 | ≥80% | — |

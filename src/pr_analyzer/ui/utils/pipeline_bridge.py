@@ -14,6 +14,7 @@ Side-effect module — UI tree is allowed to do I/O and wrap effects.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable, Iterable, Mapping
 from io import BytesIO, StringIO
 from pathlib import Path
@@ -36,6 +37,13 @@ from utils.distributions import (
 from pr_analyzer.io import PRRecord, apply_schema, detect_schema, schema_adapter
 from pr_analyzer.llm.classifiers import enrich_prs as backend_enrich_prs
 from pr_analyzer.llm.client import LLMClient, create_llm_client
+from pr_analyzer.llm.system_probe import (
+    format_report,
+    get_model_size_gb,
+    load_pipeline_config,
+    probe_system,
+    recommend_config,
+)
 from pr_analyzer.pipeline.builder import build_pipeline
 from pr_analyzer.transforms import (
     by_language,
@@ -144,15 +152,31 @@ def enrich_prs(
 ) -> Iterable[EnrichedPR]:
     """Delegate enrichment to the real backend implementation.
 
-    Creates the configured LLM client from .env when no client is provided and
-    uses the disk-backed cache implemented by make_enriched_classifier.
+    Lê LLM_MAX_WORKERS e LLM_USE_TOOLS do ambiente para habilitar concorrência
+    e tool calling sem alterar a assinatura que a UI e o pipeline usam.
+
+    LLM_MAX_WORKERS=4   → processa 4 PRs em paralelo (ThreadPoolExecutor)
+    LLM_USE_TOOLS=true  → 1 chamada por PR via tool calling (requer qwen2:1.5b+)
     """
     llm_client = client or create_llm_client()
+    cfg = load_pipeline_config()
     return backend_enrich_prs(
         prs=prs,
         client=llm_client,
         cache_path=cache_path,
+        max_workers=int(cfg["max_workers"]),
+        use_tools=bool(cfg["use_tools"]),
+        batch_size=int(cfg["batch_size"]),
     )
+
+
+def get_system_report() -> str:
+    """Retorna relatório legível do hardware e configuração recomendada para a UI."""
+    profile = probe_system()
+    model = os.environ.get("LLM_MODEL", "llama3")
+    model_size = get_model_size_gb(model)
+    config = recommend_config(profile, model_size)
+    return format_report(profile, config)
 
 
 # ── DataFrame adapters ────────────────────────────────────────────────────────

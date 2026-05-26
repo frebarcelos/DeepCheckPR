@@ -3,7 +3,7 @@
 ## Identidade do Projeto
 
 Ferramenta de análise de Pull Requests do GitHub usando **paradigma funcional** em Python 3.11+.
-Disciplina AL0337 — Linguagens de Programação, UNIPAMPA, Sprint 3 concluída (2026-05-18), Sprint 4 em andamento.
+Disciplina AL0337 — Linguagens de Programação, UNIPAMPA, Sprint 4 concluída (2026-05-25), Sprint 5 — Otimizações LLM concluída (2026-05-26).
 5 desenvolvedores (dev1–dev5), TDD obrigatório, pre-commits rigorosos.
 
 ## Arquitetura de Módulos
@@ -12,8 +12,8 @@ Disciplina AL0337 — Linguagens de Programação, UNIPAMPA, Sprint 3 concluída
 |---|---|---|---|
 | `src/pr_analyzer/io/` | dev1 | Efeito colateral | Leitura lazy do CSV via geradores; exportadores |
 | `src/pr_analyzer/transforms/` | dev2 | **PURO** | `filter()`, `map()`, `reduce()` sobre PRRecords |
-| `src/pr_analyzer/llm/` | dev3 | Efeito colateral | Chamadas Agno/Groq para classificação semântica |
-| `src/pr_analyzer/cache/` | dev4 | Misto | `hashlib` + `lru_cache` + persistência JSON |
+| `src/pr_analyzer/llm/` | dev3 | Efeito colateral | Chamadas Groq/Ollama; async, batch, retry, metrics, system_probe |
+| `src/pr_analyzer/cache/` | dev4 | Misto | `hashlib` + `lru_cache` + persistência JSON ou SQLite |
 | `src/pr_analyzer/pipeline/` | dev4 | **PURO** | `compose()`, `build_pipeline()`, HOFs |
 | `src/pr_analyzer/ui/` | dev5 | Efeito colateral | Streamlit: upload, filtros, gráficos, download |
 
@@ -110,7 +110,8 @@ develop            ← integração entre sprints
 | 1 — Estrutura base | 04/05/2026 | Módulo do dev funciona | ✅ Concluída |
 | 2 — Transformações | 11/05/2026 | >50% | ✅ Concluída |
 | 3 — LLM + Pipeline | 18/05/2026 | >65% | ✅ Concluída |
-| 4 — UI + Integração | 25/05/2026 | **≥80%** | 🔄 Em andamento |
+| 4 — UI + Integração | 25/05/2026 | **≥80%** | ✅ Concluída |
+| 5 — Otimizações LLM | 26/05/2026 | ≥80% | ✅ Concluída (87%) |
 | Entrega Final | 01/06/2026 | ≥80% | — |
 
 ## Padrão de Mensagem de Commit (OBRIGATÓRIO)

@@ -4,7 +4,9 @@ from collections import OrderedDict
 from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
+from typing import Literal
 
+from pr_analyzer.cache.sqlite_store import SqliteKVStore
 from pr_analyzer.io.csv_reader import PRRecord
 from pr_analyzer.pipeline.builder import EnrichedPR
 
@@ -48,6 +50,23 @@ def cached_classify(
     return wrapper
 
 
+def _cached_classify_sqlite(
+    classifier_fn: Callable[..., str],
+    store: SqliteKVStore,
+) -> Callable[..., str]:
+    @wraps(classifier_fn)
+    def wrapper(*args: str) -> str:
+        key = make_cache_key(*args)
+        cached = store.get(key)
+        if cached is not None:
+            return cached
+        result = classifier_fn(*args)
+        store.set(key, result)
+        return result
+
+    return wrapper
+
+
 def _derive_cache_path(base: Path | None, tag: str) -> Path | None:
     if base is None:
         return None
@@ -60,23 +79,36 @@ def make_enriched_classifier(
     classify_clarity_fn: Callable[..., str],
     cache_path: Path | None = None,
     cache_size: int = 1024,
+    cache_backend: Literal["json", "sqlite"] = "json",
 ) -> Callable[[PRRecord], EnrichedPR]:
     """Envolve três classificadores com cache e retorna uma função para enrich_pipeline."""
-    cached_type = cached_classify(
-        classify_type_fn,
-        cache_size=cache_size,
-        cache_path=_derive_cache_path(cache_path, "type"),
-    )
-    cached_nature = cached_classify(
-        classify_nature_fn,
-        cache_size=cache_size,
-        cache_path=_derive_cache_path(cache_path, "nature"),
-    )
-    cached_clarity = cached_classify(
-        classify_clarity_fn,
-        cache_size=cache_size,
-        cache_path=_derive_cache_path(cache_path, "clarity"),
-    )
+    if cache_backend == "sqlite":
+        db = cache_path if cache_path is not None else Path(".cache/classifications.db")
+        cached_type: Callable[..., str] = _cached_classify_sqlite(
+            classify_type_fn, SqliteKVStore(db, "type_cache")
+        )
+        cached_nature: Callable[..., str] = _cached_classify_sqlite(
+            classify_nature_fn, SqliteKVStore(db, "nature_cache")
+        )
+        cached_clarity: Callable[..., str] = _cached_classify_sqlite(
+            classify_clarity_fn, SqliteKVStore(db, "clarity_cache")
+        )
+    else:
+        cached_type = cached_classify(
+            classify_type_fn,
+            cache_size=cache_size,
+            cache_path=_derive_cache_path(cache_path, "type"),
+        )
+        cached_nature = cached_classify(
+            classify_nature_fn,
+            cache_size=cache_size,
+            cache_path=_derive_cache_path(cache_path, "nature"),
+        )
+        cached_clarity = cached_classify(
+            classify_clarity_fn,
+            cache_size=cache_size,
+            cache_path=_derive_cache_path(cache_path, "clarity"),
+        )
 
     def _classify(pr: PRRecord) -> EnrichedPR:
         return EnrichedPR(

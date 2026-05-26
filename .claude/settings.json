@@ -10,7 +10,9 @@
       "Bash(git log:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(make:*)"
+      "Bash(make:*)",
+      "Bash(curl -s -w '\\\\nTempo total: %{time_total}s\\\\n' -X POST http://localhost:11434/api/chat -H 'Content-Type: application/json' -d '{\"model\":\"tinyllama\",\"messages\":[{\"role\":\"system\",\"content\":\"You are a strict JSON classifier. Respond ONLY with valid JSON.\"},{\"role\":\"user\",\"content\":\"Repositório: facebook/react. Títulos de PR: [\\\\\"fix useState hook\\\\\"].\\\\nResponda estritamente em formato JSON: {\\\\\"tipo_projeto\\\\\": \\\\\"...\\\\\"}. Escolha uma das seguintes opções: aplicação web, biblioteca, ferramenta, framework, outro.\"}],\"stream\":false}')",
+      "Bash(curl -s -w '\\\\nTempo total: %{time_total}s\\\\n' -X POST http://localhost:11434/api/chat -H 'Content-Type: application/json' -d '{ *)"
     ],
     "deny": [
       "Bash(git push --force:*)",
