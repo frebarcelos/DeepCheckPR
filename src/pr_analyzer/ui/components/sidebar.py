@@ -28,6 +28,15 @@ from utils.pipeline_bridge import (
     load_uploaded,
 )
 
+# Escalas de carregamento: (label_ui, max_records, estimativa_groq, estimativa_ollama)
+# Groq free + tools + batch=5: ~150 PR/min  |  Ollama qwen2:1.5b 4w: ~80 PR/min
+_RECORD_SCALES: tuple[tuple[str, int, str, str], ...] = (
+    ("500  (amostra rapida)", 500, "~3 min", "~6 min"),
+    ("2 000  (demo padrao)", 2_000, "~13 min", "~25 min"),
+    ("10 000  (analise)", 10_000, "~1 h", "~2 h"),
+    ("50 000  (corpus parcial)", 50_000, "~6 h", "~10 h"),
+)
+
 
 def render_sidebar() -> tuple[str, str, str, str, bool, bool, bool]:
     """
@@ -140,10 +149,17 @@ def _render_local_datasets() -> None:
         return
 
     with st.expander("DATASETS LOCAIS", expanded=False):
-        sem_limite: bool = st.checkbox(
-            "Sem limite de registros", value=False, key="no_record_limit"
+        scale_labels: tuple[str, ...] = tuple(lbl for lbl, *_ in _RECORD_SCALES)
+        scale_choice: str = st.selectbox(
+            "Escala de registros",
+            scale_labels,
+            index=1,
+            key="record_scale",
         )
-        max_records = 0 if sem_limite else 2000
+        _, max_records, est_groq, est_ollama = next(
+            t for t in _RECORD_SCALES if t[0] == scale_choice
+        )
+        st.caption(f"LLM: ~{est_groq} Groq+tools  |  ~{est_ollama} Ollama 4w")
 
         labels: list[str] = [
             "— selecionar —",
