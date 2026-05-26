@@ -3,7 +3,7 @@
 ## Identidade do Projeto
 
 Ferramenta de análise de Pull Requests do GitHub usando **paradigma funcional** em Python 3.11+.
-Disciplina AL0337 — Linguagens de Programação, UNIPAMPA, Sprint 4 concluída (2026-05-25), Sprint 5 — Otimizações LLM concluída (2026-05-26).
+Disciplina AL0337 — Linguagens de Programação, UNIPAMPA, Sprint 4 concluída (2026-05-25), Sprint 5 — Otimizações LLM concluída (2026-05-26), v6.0.0 — Persistência + UI concluída (2026-05-26).
 5 desenvolvedores (dev1–dev5), TDD obrigatório, pre-commits rigorosos.
 
 ## Arquitetura de Módulos
@@ -112,6 +112,7 @@ develop            ← integração entre sprints
 | 3 — LLM + Pipeline | 18/05/2026 | >65% | ✅ Concluída |
 | 4 — UI + Integração | 25/05/2026 | **≥80%** | ✅ Concluída |
 | 5 — Otimizações LLM | 26/05/2026 | ≥80% | ✅ Concluída (87%) |
+| 6 — Persistência + UI | 26/05/2026 | ≥80% | ✅ Concluída (88%) |
 | Entrega Final | 01/06/2026 | ≥80% | — |
 
 ## Padrão de Mensagem de Commit (OBRIGATÓRIO)
@@ -353,6 +354,19 @@ Erros comuns de integração e suas correções:
 
 ### Para push
 - **Push e merge de PRs são operações do desenvolvedor.** O assistente cria commits locais e pode abrir PRs via `gh`, mas `git push` e `gh pr merge` requerem autorização explícita do desenvolvedor para cada sessão.
+
+### Ao criar uma nova release (OBRIGATÓRIO)
+
+Antes de criar a tag git de uma nova versão, **sempre** execute estes passos na ordem:
+
+1. Atualize `APP_VERSION` em `src/pr_analyzer/ui/utils/constants.py` com a nova versão (ex: `"6.0"` → `"7.0"`).
+2. Atualize a linha de identidade no topo do `CLAUDE.md`.
+3. Atualize a tabela de sprints/fases no `CLAUDE.md` e no `README.md`.
+4. Atualize a tabela de cobertura no `README.md` com os números reais.
+5. Faça commit: `chore(release): bump version para vX.Y.Z`
+6. Crie a tag: `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
+
+O rodapé da dashboard lê `APP_VERSION` automaticamente — qualquer release sem atualizar `constants.py` resultará em versão desatualizada na UI.
 
 ## O que NUNCA fazer
 
