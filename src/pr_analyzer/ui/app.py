@@ -42,6 +42,7 @@ from utils.pipeline_bridge import (  # noqa: E402
 from utils.styles import inject_css  # noqa: E402
 
 from pr_analyzer.llm.client import create_llm_client  # noqa: E402
+from pr_analyzer.llm.metrics import ClassificationMetrics  # noqa: E402
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
 inject_css()
@@ -105,6 +106,7 @@ def _maybe_enrich() -> None:
         return
 
     enriched_list = []
+    metrics = ClassificationMetrics()
 
     with st.status(
         f"Classificando {n} PR{'s' if n != 1 else ''} com {backend.upper()}…",
@@ -112,7 +114,7 @@ def _maybe_enrich() -> None:
     ) as status:
         st.caption(f"Modelo: `{model}`")
         bar = st.progress(0.0)
-        for i, ep in enumerate(enrich_prs(prs, client=client), 1):
+        for i, ep in enumerate(enrich_prs(prs, client=client, metrics=metrics), 1):
             enriched_list.append(ep)
             bar.progress(i / n)
         status.update(
@@ -122,7 +124,12 @@ def _maybe_enrich() -> None:
         )
 
     st.session_state.df = enriched_to_dataframe(enriched_list)
-    st.session_state.llm_cache_stats = {"total": n, "cache_hits": 0, "calls_made": n}
+    calls_made = n - metrics.cache_hits
+    st.session_state.llm_cache_stats = {
+        "total": n,
+        "cache_hits": metrics.cache_hits,
+        "calls_made": calls_made,
+    }
     st.session_state.llm_enriched = True
 
 

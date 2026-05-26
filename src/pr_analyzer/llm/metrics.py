@@ -22,6 +22,7 @@ class ClassificationMetrics:
     """
 
     total_prs: int = 0
+    cache_hits: int = 0
     batch_calls: int = 0
     batch_fallbacks: int = 0
     individual_calls: int = 0

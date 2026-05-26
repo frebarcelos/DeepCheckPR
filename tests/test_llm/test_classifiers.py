@@ -24,6 +24,7 @@ from pr_analyzer.llm.classifiers import (
     safe_classify,
 )
 from pr_analyzer.llm.client import create_groq_client
+from pr_analyzer.llm.metrics import ClassificationMetrics
 from pr_analyzer.pipeline.builder import EnrichedPR
 
 
@@ -299,6 +300,70 @@ def test_enrich_prs_cache_persiste_entre_chamadas(
     mock_client.run.reset_mock()
     list(enrich_prs([sample_pr], mock_client, cache_path=cache_file))
     assert mock_client.run.call_count == 0
+
+
+def test_enrich_prs_result_cache_evita_rellamada_tools(
+    mock_client: MagicMock, sample_pr: PRRecord, tmp_path: Path
+) -> None:
+    """SQLite result-cache funciona no caminho use_tools=True."""
+    cache_file = tmp_path / "enrich.json"
+    mock_client.run.return_value = MagicMock(
+        content='[{"project_type":"Library","contribution_nature":"Bug Fix","description_clarity":"Good"}]'
+    )
+    list(enrich_prs([sample_pr], mock_client, cache_path=cache_file, use_tools=True))
+
+    mock_client.run.reset_mock()
+    result = list(
+        enrich_prs([sample_pr], mock_client, cache_path=cache_file, use_tools=True)
+    )
+    assert mock_client.run.call_count == 0
+    assert len(result) == 1
+    assert isinstance(result[0], EnrichedPR)
+
+
+def test_enrich_prs_result_cache_hits_em_metrics(
+    mock_client: MagicMock, sample_pr: PRRecord, tmp_path: Path
+) -> None:
+    """cache_hits em ClassificationMetrics reflete acertos do result-cache."""
+    cache_file = tmp_path / "enrich.json"
+    mock_client.run.side_effect = [
+        MagicMock(content='{"tipo_projeto": "biblioteca"}'),
+        MagicMock(content='{"natureza": "bug fix"}'),
+        MagicMock(content='{"clareza": "boa"}'),
+    ]
+    m1 = ClassificationMetrics()
+    list(enrich_prs([sample_pr], mock_client, cache_path=cache_file, metrics=m1))
+    assert m1.cache_hits == 0
+
+    m2 = ClassificationMetrics()
+    mock_client.run.reset_mock()
+    list(enrich_prs([sample_pr], mock_client, cache_path=cache_file, metrics=m2))
+    assert m2.cache_hits == 1
+    assert mock_client.run.call_count == 0
+
+
+def test_enrich_prs_result_cache_parcial(
+    mock_client: MagicMock, sample_pr: PRRecord, tmp_path: Path
+) -> None:
+    """PRs novos são processados mesmo quando outros já estão no cache."""
+    cache_file = tmp_path / "enrich.json"
+    pr2 = sample_pr._replace(pr_id=2, title="Add new feature", body="Implements X.")
+    mock_client.run.side_effect = [
+        MagicMock(content='{"tipo_projeto": "biblioteca"}'),
+        MagicMock(content='{"natureza": "bug fix"}'),
+        MagicMock(content='{"clareza": "boa"}'),
+    ]
+    list(enrich_prs([sample_pr], mock_client, cache_path=cache_file))
+
+    mock_client.run.reset_mock()
+    mock_client.run.side_effect = [
+        MagicMock(content='{"tipo_projeto": "framework"}'),
+        MagicMock(content='{"natureza": "feature"}'),
+        MagicMock(content='{"clareza": "excelente"}'),
+    ]
+    result = list(enrich_prs([sample_pr, pr2], mock_client, cache_path=cache_file))
+    assert len(result) == 2
+    assert mock_client.run.call_count == 3
 
 
 # ── TASK-45 — Testes de contrato dos classificadores ─────────────────────────

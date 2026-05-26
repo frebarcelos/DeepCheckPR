@@ -37,6 +37,7 @@ from utils.distributions import (
 from pr_analyzer.io import PRRecord, apply_schema, detect_schema, schema_adapter
 from pr_analyzer.llm.classifiers import enrich_prs as backend_enrich_prs
 from pr_analyzer.llm.client import LLMClient, create_llm_client
+from pr_analyzer.llm.metrics import ClassificationMetrics
 from pr_analyzer.llm.system_probe import (
     format_report,
     get_model_size_gb,
@@ -148,15 +149,15 @@ def filter_prs(
 def enrich_prs(
     prs: Iterable[PRRecord],
     client: LLMClient | None = None,
-    cache_path: Path | None = None,
+    cache_path: Path = Path(".cache/ui_llm.db"),
+    metrics: ClassificationMetrics | None = None,
 ) -> Iterable[EnrichedPR]:
     """Delegate enrichment to the real backend implementation.
 
-    Lê LLM_MAX_WORKERS e LLM_USE_TOOLS do ambiente para habilitar concorrência
-    e tool calling sem alterar a assinatura que a UI e o pipeline usam.
-
     LLM_MAX_WORKERS=4   → processa 4 PRs em paralelo (ThreadPoolExecutor)
     LLM_USE_TOOLS=true  → 1 chamada por PR via tool calling (requer qwen2:1.5b+)
+    cache_path           → SQLite result-cache; resultados anteriores não são reclassificados.
+    metrics              → acumula cache_hits e throughput; None = sem coleta.
     """
     llm_client = client or create_llm_client()
     cfg = load_pipeline_config()
@@ -167,6 +168,7 @@ def enrich_prs(
         max_workers=int(cfg["max_workers"]),
         use_tools=bool(cfg["use_tools"]),
         batch_size=int(cfg["batch_size"]),
+        metrics=metrics,
     )
 
 
