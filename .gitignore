@@ -197,3 +197,6 @@ data/*.zip
 
 # Configurações locais do Claude Code (contexto pessoal por dev — não versionar)
 .claude/local/
+
+# Apresentação (arquivo local — não versionar)
+apresentacao.md
