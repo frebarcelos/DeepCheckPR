@@ -15,6 +15,7 @@ class EnrichedPR(NamedTuple):
     project_type: str
     contribution_nature: str
     description_clarity: str
+    review_complexity: str = ""
 
 
 __all__: tuple[str, ...] = (
@@ -24,6 +25,7 @@ __all__: tuple[str, ...] = (
     "count_by_project_type",
     "count_by_contribution_nature",
     "count_by_description_clarity",
+    "count_by_review_complexity",
     "group_by_repo",
     "accumulate_stats",
     "aggregate_stats",
@@ -99,6 +101,19 @@ def count_by_description_clarity(enriched_prs: Iterable[EnrichedPR]) -> dict[str
         dict[str, int]: Um dicionário mapeando os níveis de clareza para as suas contagens.
     """
     return count_by_field("description_clarity")(enriched_prs)
+
+
+def count_by_review_complexity(enriched_prs: Iterable[EnrichedPR]) -> dict[str, int]:
+    """
+    Conta o número de PRs por nível de complexidade de revisão.
+
+    Args:
+        enriched_prs (Iterable[EnrichedPR]): Um iterável de Pull Requests enriquecidos.
+
+    Returns:
+        dict[str, int]: Um dicionário mapeando os níveis de complexidade para as suas contagens.
+    """
+    return count_by_field("review_complexity")(enriched_prs)
 
 
 def group_by_repo(prs: Iterable[PRRecord]) -> dict[str, list[PRRecord]]:

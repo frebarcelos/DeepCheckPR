@@ -12,9 +12,11 @@ from dotenv import load_dotenv
 
 from pr_analyzer.io.csv_reader import PRRecord
 from pr_analyzer.llm.classifiers import (
+    COMPLEXIDADES_REVISAO,
     NATUREZAS_CONTRIBUICAO,
     NIVEIS_CLAREZA_DESCRICAO,
     TIPOS_PROJETO,
+    GuardrailViolation,
     avaliar_clareza_descricao,
     classificar_natureza_contribuicao,
     classificar_tipo_projeto,
@@ -22,6 +24,8 @@ from pr_analyzer.llm.classifiers import (
     enrich_pr_with_tools,
     enrich_prs,
     safe_classify,
+    sanitize,
+    validate_pr,
 )
 from pr_analyzer.llm.client import create_groq_client
 from pr_analyzer.llm.metrics import ClassificationMetrics
@@ -46,6 +50,67 @@ def test_naturezas_contribuicao_é_frozenset() -> None:
 
 def test_niveis_clareza_descricao_é_frozenset() -> None:
     assert isinstance(NIVEIS_CLAREZA_DESCRICAO, frozenset)
+
+
+def test_complexidades_revisao_é_frozenset() -> None:
+    assert isinstance(COMPLEXIDADES_REVISAO, frozenset)
+
+
+def test_complexidades_revisao_tem_valores_esperados() -> None:
+    assert frozenset({"low", "medium", "high"}) == COMPLEXIDADES_REVISAO
+
+
+# ── guardrails ────────────────────────────────────────────────────────────────
+
+
+def test_sanitize_remove_caracteres_controle() -> None:
+    assert sanitize("hello\x00world", 100) == "helloworld"
+
+
+def test_sanitize_trunca_ao_limite() -> None:
+    assert sanitize("abcdef", 3) == "abc"
+
+
+def test_sanitize_texto_normal_inalterado() -> None:
+    assert sanitize("Fix crash in auth", 100) == "Fix crash in auth"
+
+
+def _make_pr(**kwargs: object) -> PRRecord:
+    defaults: dict[str, object] = {
+        "pr_id": 1,
+        "repo_name": "org/repo",
+        "language": "python",
+        "title": "Fix bug",
+        "body": "",
+        "state": "open",
+        "created_at": "",
+        "merged_at": "",
+        "additions": 0,
+        "deletions": 0,
+        "changed_files": 1,
+    }
+    return PRRecord(**{**defaults, **kwargs})  # type: ignore[arg-type]
+
+
+def test_validate_pr_levanta_quando_sem_repo_e_titulo() -> None:
+    pr = _make_pr(repo_name="", title="")
+    with pytest.raises(GuardrailViolation):
+        validate_pr(pr)
+
+
+def test_validate_pr_aceita_apenas_repo() -> None:
+    pr = _make_pr(repo_name="org/repo", title="")
+    validate_pr(pr)  # não deve levantar
+
+
+def test_validate_pr_aceita_apenas_titulo() -> None:
+    pr = _make_pr(repo_name="", title="Fix bug")
+    validate_pr(pr)  # não deve levantar
+
+
+def test_validate_pr_aceita_ambos_preenchidos() -> None:
+    pr = _make_pr(repo_name="org/repo", title="Fix bug")
+    validate_pr(pr)  # não deve levantar
 
 
 def test_tipos_projeto_nao_esta_vazio() -> None:

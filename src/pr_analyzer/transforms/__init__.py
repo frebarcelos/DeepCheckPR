@@ -18,6 +18,7 @@ from pr_analyzer.transforms.reducers import (
     count_by_field,
     count_by_language,
     count_by_project_type,
+    count_by_review_complexity,
     group_by_repo,
 )
 
@@ -35,6 +36,7 @@ __all__ = (
     "count_by_project_type",
     "count_by_contribution_nature",
     "count_by_description_clarity",
+    "count_by_review_complexity",
     "group_by_repo",
     "EnrichedPR",
     "accumulate_stats",

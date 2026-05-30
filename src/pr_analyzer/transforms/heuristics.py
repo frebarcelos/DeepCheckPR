@@ -62,6 +62,29 @@ def heuristic_clarity(body: str) -> str | None:
     return None
 
 
+def heuristic_complexity(pr: PRRecord) -> str:
+    """Estima a complexidade de revisão de um PR via heurística de tamanho.
+
+    Cobre os casos extremos sem chamar o LLM:
+    - zero linhas → low (PR vazio, provavelmente só doc ou rename)
+    - >1000 linhas ou >20 arquivos → high
+    - <30 linhas e ≤2 arquivos → low
+    - caso intermediário: medium se <300 linhas, high caso contrário.
+
+    Returns:
+        "low" | "medium" | "high"
+    """
+    size = (pr.additions or 0) + (pr.deletions or 0)
+    files = pr.changed_files or 1
+    if size == 0:
+        return "low"
+    if size > 1000 or files > 20:
+        return "high"
+    if size < 30 and files <= 2:
+        return "low"
+    return "medium" if size < 300 else "high"
+
+
 def heuristic_classify(pr: PRRecord) -> EnrichedPR | None:
     """Classifica o PR via heurística, sem chamar o LLM.
 

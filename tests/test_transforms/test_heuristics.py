@@ -6,6 +6,7 @@ from pr_analyzer.io.csv_reader import PRRecord
 from pr_analyzer.transforms.heuristics import (
     heuristic_clarity,
     heuristic_classify,
+    heuristic_complexity,
     heuristic_nature,
 )
 from pr_analyzer.transforms.reducers import EnrichedPR
@@ -176,6 +177,57 @@ def test_heuristic_classify_refac_body_vazio() -> None:
     result = heuristic_classify(pr)
     assert result is not None
     assert result.contribution_nature == "refatoração"
+
+
+# ── heuristic_complexity ─────────────────────────────────────────────────────
+
+
+def test_heuristic_complexity_zero_changes_retorna_low() -> None:
+    pr = _pr()  # additions=0, deletions=0
+    assert heuristic_complexity(pr) == "low"
+
+
+def test_heuristic_complexity_grande_retorna_high() -> None:
+    pr = _pr()._replace(additions=800, deletions=300)  # 1100 > 1000
+    assert heuristic_complexity(pr) == "high"
+
+
+def test_heuristic_complexity_muitos_arquivos_retorna_high() -> None:
+    pr = _pr()._replace(additions=10, deletions=5, changed_files=25)
+    assert heuristic_complexity(pr) == "high"
+
+
+def test_heuristic_complexity_pequeno_retorna_low() -> None:
+    pr = _pr()._replace(
+        additions=10, deletions=15, changed_files=2
+    )  # 25 < 30, files ≤ 2
+    assert heuristic_complexity(pr) == "low"
+
+
+def test_heuristic_complexity_medio_retorna_medium() -> None:
+    pr = _pr()._replace(additions=100, deletions=50, changed_files=5)  # 150 < 300
+    assert heuristic_complexity(pr) == "medium"
+
+
+def test_heuristic_complexity_grande_sem_ultrapassar_1000_retorna_high() -> None:
+    pr = _pr()._replace(additions=200, deletions=200, changed_files=5)  # 400 >= 300
+    assert heuristic_complexity(pr) == "high"
+
+
+def test_heuristic_complexity_retorna_valor_valido() -> None:
+    from pr_analyzer.llm.classifiers import COMPLEXIDADES_REVISAO
+
+    for additions, deletions, files in [
+        (0, 0, 1),
+        (10, 15, 2),
+        (100, 50, 5),
+        (800, 300, 10),
+        (10, 5, 25),
+    ]:
+        pr = _pr()._replace(
+            additions=additions, deletions=deletions, changed_files=files
+        )
+        assert heuristic_complexity(pr) in COMPLEXIDADES_REVISAO
 
 
 # ── invariantes de propriedade ────────────────────────────────────────────────

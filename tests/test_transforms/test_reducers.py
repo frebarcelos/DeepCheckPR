@@ -7,6 +7,7 @@ from pr_analyzer.transforms.reducers import (
     count_by_description_clarity,
     count_by_language,
     count_by_project_type,
+    count_by_review_complexity,
     group_by_repo,
 )
 
@@ -92,6 +93,34 @@ def test_count_by_description_clarity_multiple() -> None:
 
 def test_count_by_description_clarity_empty() -> None:
     assert count_by_description_clarity([]) == {}
+
+
+def test_count_by_review_complexity_multiple() -> None:
+    prs = [
+        EnrichedPR(create_sample_pr("python"), "biblioteca", "feature", "boa", "low"),
+        EnrichedPR(
+            create_sample_pr("python"), "biblioteca", "bug fix", "excelente", "high"
+        ),
+        EnrichedPR(create_sample_pr("java"), "aplicação web", "feature", "boa", "low"),
+    ]
+    result = count_by_review_complexity(prs)
+    assert result == {"low": 2, "high": 1}
+
+
+def test_count_by_review_complexity_empty() -> None:
+    assert count_by_review_complexity([]) == {}
+
+
+def test_enriched_pr_default_complexity() -> None:
+    pr = EnrichedPR(create_sample_pr("python"), "biblioteca", "feature", "boa")
+    assert pr.review_complexity == ""
+
+
+def test_enriched_pr_com_complexity() -> None:
+    pr = EnrichedPR(
+        create_sample_pr("python"), "biblioteca", "feature", "boa", "medium"
+    )
+    assert pr.review_complexity == "medium"
 
 
 def test_group_by_repo_multiple() -> None:

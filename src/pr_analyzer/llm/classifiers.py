@@ -26,7 +26,7 @@ from pr_analyzer.llm.skills import (
     FEW_SHOT_DESCRIPTION_CLARITY,
     FEW_SHOT_PROJECT_TYPE,
 )
-from pr_analyzer.transforms.heuristics import heuristic_classify
+from pr_analyzer.transforms.heuristics import heuristic_classify, heuristic_complexity
 from pr_analyzer.transforms.reducers import EnrichedPR
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -80,6 +80,27 @@ NIVEIS_CLAREZA_DESCRICAO: frozenset[str] = frozenset(
         "excelente",
     }
 )
+
+COMPLEXIDADES_REVISAO: frozenset[str] = frozenset({"low", "medium", "high"})
+
+# ── Guardrails de entrada ─────────────────────────────────────────────────────
+
+_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]")
+
+
+class GuardrailViolation(Exception):  # noqa: N818
+    """Raised when input fails guardrail validation before reaching the LLM."""
+
+
+def sanitize(text: str, max_chars: int) -> str:
+    """Remove caracteres de controle e trunca ao limite de max_chars."""
+    return _CONTROL_CHARS.sub("", text)[:max_chars]
+
+
+def validate_pr(pr: PRRecord) -> None:
+    """Levanta GuardrailViolation se o PR não tem repo_name nem título."""
+    if not pr.repo_name and not pr.title:
+        raise GuardrailViolation("PR must have at least a repo_name or title")
 
 
 # ── Classificadores ───────────────────────────────────────────────────────────
@@ -510,6 +531,8 @@ def enrich_pr_with_tools(
         f"Body: {_body_snippet(pr.body, _single_body_chars())}"
     )
 
+    complexity = heuristic_complexity(pr)
+
     if cached_type is not None:
         try:
             response = client.run(
@@ -527,6 +550,7 @@ def enrich_pr_with_tools(
                 description_clarity=clareza
                 if clareza in NIVEIS_CLAREZA_DESCRICAO
                 else "insuficiente",
+                review_complexity=complexity,
             )
         except Exception:
             return EnrichedPR(
@@ -534,6 +558,7 @@ def enrich_pr_with_tools(
                 project_type=cached_type,
                 contribution_nature="outro",
                 description_clarity="insuficiente",
+                review_complexity=complexity,
             )
 
     try:
@@ -551,6 +576,7 @@ def enrich_pr_with_tools(
             description_clarity=clareza
             if clareza in NIVEIS_CLAREZA_DESCRICAO
             else "insuficiente",
+            review_complexity=complexity,
         )
     except Exception:
         return EnrichedPR(
@@ -558,6 +584,7 @@ def enrich_pr_with_tools(
             project_type="outro",
             contribution_nature="outro",
             description_clarity="insuficiente",
+            review_complexity=complexity,
         )
 
 
@@ -892,6 +919,7 @@ async def _enrich_one_async(
         f"Title: {pr.title}\n"
         f"Body: {_body_snippet(pr.body, _single_body_chars())}"
     )
+    complexity = heuristic_complexity(pr)
     async with semaphore:
         try:
             response = await client.run(prompt, tools=[_classify_pr_tool_def()])
@@ -908,6 +936,7 @@ async def _enrich_one_async(
                 description_clarity=clareza
                 if clareza in NIVEIS_CLAREZA_DESCRICAO
                 else "insuficiente",
+                review_complexity=complexity,
             )
         except Exception:
             return EnrichedPR(
@@ -915,6 +944,7 @@ async def _enrich_one_async(
                 project_type="outro",
                 contribution_nature="outro",
                 description_clarity="insuficiente",
+                review_complexity=complexity,
             )
 
 
@@ -1006,3 +1036,4 @@ async def enrich_prs_async(
 classify_project_type = classificar_tipo_projeto
 classify_contribution_nature = classificar_natureza_contribuicao
 classify_description_clarity = avaliar_clareza_descricao
+classify_review_complexity = heuristic_complexity
