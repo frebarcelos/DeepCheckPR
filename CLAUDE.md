@@ -3,7 +3,7 @@
 ## Identidade do Projeto
 
 Ferramenta de análise de Pull Requests do GitHub usando **paradigma funcional** em Python 3.11+.
-Disciplina AL0337 — Linguagens de Programação, UNIPAMPA, Sprint 4 concluída (2026-05-25), Sprint 5 — Otimizações LLM concluída (2026-05-26), v6.0.0 — Persistência + UI concluída (2026-05-26).
+Disciplina AL0337 — Linguagens de Programação, UNIPAMPA, Sprint 6 concluída (2026-05-26), v7.0.0 — integração Gift concluída (2026-05-30).
 5 desenvolvedores (dev1–dev5), TDD obrigatório, pre-commits rigorosos.
 
 ## Entrega e Apresentação do Marco 02 — PRAZOS CRÍTICOS

@@ -67,6 +67,8 @@ ui/ (Streamlit)        ← upload, filtros, gráficos, export (dev5)
 | **Seletor de escala** com estimativas de tempo (500/2k/10k/50k) | v6 | ✅ |
 | **"Todas as bases"**: carrega e concatena todos os datasets em data/ | v6 | ✅ |
 | **`pipeline-all`**: processa dataset completo sem limite via CLI | v6 | ✅ |
+| **Complexidade de revisão** (`review_complexity`): low/medium/high por PR | v7 | ✅ |
+| **Guardrails de entrada**: `sanitize` + `validate_pr` rejeitam PRs corrompidos antes do LLM | v7 | ✅ |
 
 ---
 
@@ -200,7 +202,7 @@ make test                  # testes unitários
 make docker-test           # roda pytest dentro do Docker com cobertura ≥80%
 ```
 
-Cobertura por módulo (v6.0.0 — 2026-05-26):
+Cobertura por módulo (v7.0.0 — 2026-05-30):
 
 | Módulo | Cobertura |
 |---|---|
@@ -211,7 +213,7 @@ Cobertura por módulo (v6.0.0 — 2026-05-26):
 | `llm/classifiers.py` | ~94% |
 | `llm/metrics.py` | 100% |
 | `llm/system_probe.py` | ~39% (I/O — mockado intencionalmente) |
-| **Total** | **88%** |
+| **Total** | **89%** |
 
 Os testes em `transforms/` e `pipeline/` usam **Hypothesis** para property-based testing:
 
@@ -390,4 +392,5 @@ feature branch → PR → develop → PR → main
 | 4 — UI + Integração | 25/05/2026 | **≥80%** | ✅ |
 | 5 — Otimizações LLM | 26/05/2026 | ≥80% | ✅ (87%) |
 | 6 — Persistência + UI | 26/05/2026 | ≥80% | ✅ (88%) |
-| Entrega Final | 01/06/2026 | ≥80% | — |
+| 7 — Integração Gift | 30/05/2026 | ≥80% | ✅ (89%) |
+| Entrega Final (Marco 02) | 01/06/2026 | ≥80% | — |

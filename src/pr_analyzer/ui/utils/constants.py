@@ -56,5 +56,5 @@ COL_RENAMES: dict[str, str] = {
 }
 
 # ── App metadata ─────────────────────────────────────────────────────────────
-APP_VERSION = "6.0"
+APP_VERSION = "7.0"
 APP_NAME = "GitAnalyzer"
