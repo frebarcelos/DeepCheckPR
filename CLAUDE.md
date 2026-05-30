@@ -6,6 +6,54 @@ Ferramenta de análise de Pull Requests do GitHub usando **paradigma funcional**
 Disciplina AL0337 — Linguagens de Programação, UNIPAMPA, Sprint 4 concluída (2026-05-25), Sprint 5 — Otimizações LLM concluída (2026-05-26), v6.0.0 — Persistência + UI concluída (2026-05-26).
 5 desenvolvedores (dev1–dev5), TDD obrigatório, pre-commits rigorosos.
 
+## Entrega e Apresentação do Marco 02 — PRAZOS CRÍTICOS
+
+### Prazos
+
+| O quê | Prazo |
+|---|---|
+| **Último commit/tag aceito** | **31/05/2026 às 23h59** — commits após isso não são avaliados |
+| **Submissão dos artefatos** | **01/06/2026 às 18h** — via tarefa no AVA |
+| **Apresentação** | **01/06/2026 na aula** — 10 a 12 minutos por grupo |
+
+### Checklist de Entrega (um membro do grupo submete no AVA)
+
+- [ ] Consolidar tudo na `main` (merges de todas as branches individuais)
+- [ ] Criar tag/release: `git tag -a marco-02 -m "Entrega Marco 02"` + push da tag
+- [ ] Exportar `apresentacao.md` para PDF
+- [ ] Criar PDF com o nome da tag (`marco-02`) do git
+- [ ] Submeter os dois PDFs na tarefa do Marco 02 até 01/06 às 18h
+
+### Regras da Apresentação (desconto em nota se descumpridas)
+
+1. **Não ler os slides** — falar sobre o projeto de forma clara e concisa
+2. **Demonstração do código é obrigatória** dentro dos 10–12 minutos
+3. **Participação equilibrada** de todos os integrantes — obrigatório
+4. **Respeitar o tempo limite** — apresentações que excederem podem ter desconto
+5. **Preparar-se para perguntas** dos professores (detalhes técnicos + decisões de design)
+6. **Só quem apresentar recebe nota** do Marco 02
+7. Preparar plano de tempo, divisão de tópicos e estratégia de contingência técnica
+
+### Ordem sugerida para os merges finais (antes da tag)
+
+```bash
+# 1. Cada dev faz PR da sua branch para develop
+bernardo       → develop   (io/)
+pedro          → develop   (transforms/)
+dev/dev3       → develop   (llm/)
+frederico-barcelos → develop  (cache/ + pipeline/)
+diogo          → develop   (ui/)
+
+# 2. develop → main (PR final do grupo)
+develop → main
+
+# 3. Criar a tag na main
+git tag -a marco-02 -m "Entrega Marco 02"
+git push origin marco-02
+```
+
+---
+
 ## Arquitetura de Módulos
 
 | Módulo | Dev | Tipo | O que faz |
