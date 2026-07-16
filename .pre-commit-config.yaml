@@ -1,7 +1,7 @@
 repos:
   # ── Formatação e linting ────────────────────────────────────────────────
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.4
+    rev: v0.15.22
     hooks:
       - id: ruff          # linting: estilo, imports, complexidade, naming
         args: [--fix]
@@ -9,7 +9,7 @@ repos:
 
   # ── Type checking ────────────────────────────────────────────────────────
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.9.0
+    rev: v2.3.0
     hooks:
       - id: mypy
         args: [--strict, --ignore-missing-imports]
@@ -64,7 +64,7 @@ repos:
         language: system
         entry: docker compose run --rm -T app python -m pytest tests/ -m "not integration" --tb=short -q --no-header
         pass_filenames: false
-        stages: [push]
+        stages: [pre-push]
 
       # Cobertura mínima de testes: 80% — roda no pre-push via Docker
       - id: coverage-check
@@ -72,12 +72,12 @@ repos:
         language: system
         entry: docker compose run --rm -T app python -m pytest tests/ -m "not integration" --cov=src/pr_analyzer --cov-fail-under=80 --cov-report=term-missing --tb=short -q --no-header
         pass_filenames: false
-        stages: [push]
+        stages: [pre-push]
 
-      # Revisão semântica via Claude API — roda no pre-push via Docker
-      - id: claude-review
+      # Revisão determinística pelas regras locais — sem API externa
+      - id: code-review
         name: "Revisao de codigo (regras locais)"
         language: system
-        entry: docker compose run --rm -T app python scripts/claude_review.py
+        entry: docker compose run --rm -T app python scripts/code_review.py
         pass_filenames: false
-        stages: [push]
+        stages: [pre-push]

@@ -127,8 +127,10 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Environments
+# Environments e segredos locais
 .env
+.env.*
+!.env.example
 .venv
 env/
 venv/
@@ -195,8 +197,23 @@ data/*.zip
 .cursorignore
 .cursorindexingignore
 
-# Configurações locais do Claude Code (contexto pessoal por dev — não versionar)
-.claude/local/
+# Configurações locais de assistentes de IA e editores
+.ai/
+.aider*
+.claude/
+.continue/
+.cursor/
+AGENTS.md
 
-# Apresentação (arquivo local — não versionar)
+# Bancos e arquivos auxiliares do cache SQLite
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+
+# Saídas locais do pipeline
+output.json
+output/
+
+# Apresentações e anotações locais
 apresentacao.md

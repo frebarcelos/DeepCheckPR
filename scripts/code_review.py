@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
-"""Revisão de código baseada em regras locais pré-estabelecidas.
+"""Executa a revisão determinística baseada nas regras locais do projeto.
 
-Executado no pre-push. Roda o verificador de paradigma (check_paradigm.py)
-nos arquivos Python do último commit e reporta PASS / WARN / FAIL.
-
-Zero chamadas de API — revisão determinística e sem custo.
+O hook roda antes do push, aplica ``check_paradigm.py`` aos arquivos Python
+do último commit e reporta PASS, WARN ou FAIL. Nenhum serviço de IA ou API
+externa é necessário.
 """
 
 import subprocess
 import sys
 from pathlib import Path
 
-sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
 
 SCRIPTS_DIR = Path(__file__).parent
 
@@ -23,13 +22,13 @@ def _get_committed_python_files() -> list[str]:
         capture_output=True,
         text=True,
     )
-    return [f for f in result.stdout.splitlines() if f.endswith(".py")]
+    return [file for file in result.stdout.splitlines() if file.endswith(".py")]
 
 
 def main() -> int:
     files = _get_committed_python_files()
     if not files:
-        print("claude-review: nenhum arquivo Python modificado.")
+        print("code-review: nenhum arquivo Python modificado.")
         return 0
 
     checker = SCRIPTS_DIR / "check_paradigm.py"
@@ -48,11 +47,7 @@ def main() -> int:
     print("REVISAO DE CODIGO (regras locais)")
     print("-" * 60)
 
-    if output:
-        print(output)
-    else:
-        print("Nenhuma violacao encontrada.")
-
+    print(output or "Nenhuma violacao encontrada.")
     print("-" * 60)
 
     if has_errors:
@@ -60,11 +55,10 @@ def main() -> int:
         print(f"Arquivos revisados: {', '.join(files)}")
         return 1
 
-    if has_warnings:
-        print("STATUS: WARN — avisos encontrados, revise quando possivel.")
-    else:
-        print("STATUS: PASS — todos os arquivos conformes com o paradigma.")
-
+    status = "WARN — avisos encontrados, revise quando possivel."
+    if not has_warnings:
+        status = "PASS — todos os arquivos conformes com o paradigma."
+    print(f"STATUS: {status}")
     print(f"Arquivos revisados: {', '.join(files)}")
     return 0
 
