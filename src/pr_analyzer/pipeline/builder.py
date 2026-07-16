@@ -10,12 +10,12 @@ from pr_analyzer.transforms.reducers import EnrichedPR
 
 __all__: tuple[str, ...] = (
     "EnrichedPR",
-    "compose",
-    "pipe",
-    "enrich_pipeline",
-    "stats_pipeline",
     "build_pipeline",
+    "compose",
+    "enrich_pipeline",
+    "pipe",
     "pipeline_from_env",
+    "stats_pipeline",
 )
 
 T = TypeVar("T")

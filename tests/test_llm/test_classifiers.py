@@ -1,4 +1,4 @@
-"""Testes para src/pr_analyzer/llm/classifiers.py — TASK-09, TASK-34, TASK-35."""
+"""Testes para src/pr_analyzer/llm/classifiers.py."""
 
 import asyncio
 import json
@@ -32,7 +32,7 @@ from pr_analyzer.llm.metrics import ClassificationMetrics
 from pr_analyzer.pipeline.builder import EnrichedPR
 
 
-@pytest.fixture()  # type: ignore[misc]
+@pytest.fixture  # type: ignore[misc]
 def mock_client() -> MagicMock:
     return MagicMock()
 
@@ -150,7 +150,7 @@ def test_classificar_tipo_projeto_fallback_invalid_value(
     assert result == "outro"
 
 
-@pytest.mark.integration()
+@pytest.mark.integration
 def test_classificar_tipo_projeto_integration() -> None:
     load_dotenv()
     if "GROQ_API_KEY" not in os.environ:
@@ -235,7 +235,7 @@ def test_avaliar_clareza_descricao_fallback_invalid(mock_client: MagicMock) -> N
     assert result == "insuficiente"
 
 
-# ── classify_repos_batch (TASK-34) ────────────────────────────────────────────
+# ── classify_repos_batch ─────────────────────────────────────────────────────
 
 
 def test_classify_repos_batch_vazio(mock_client: MagicMock) -> None:
@@ -291,7 +291,7 @@ def test_classify_repos_batch_inclui_titulos_no_prompt(
     assert sample_pr.title in prompt
 
 
-# ── enrich_prs (TASK-35) ──────────────────────────────────────────────────────
+# ── enrich_prs ───────────────────────────────────────────────────────────────
 
 
 def test_enrich_prs_retorna_iteravel(
@@ -431,7 +431,7 @@ def test_enrich_prs_result_cache_parcial(
     assert mock_client.run.call_count == 3
 
 
-# ── TASK-45 — Testes de contrato dos classificadores ─────────────────────────
+# ── Testes de contrato dos classificadores ───────────────────────────────────
 # Invariante: o output SEMPRE pertence ao frozenset válido, independente do
 # input ou da resposta do LLM (inclusive inputs extremos e respostas inválidas).
 
@@ -545,7 +545,7 @@ def test_clareza_descricao_contrato_excecao_de_rede(mock_client: MagicMock) -> N
     assert result in NIVEIS_CLAREZA_DESCRICAO
 
 
-# ── TASK-44 — safe_classify() HOF ────────────────────────────────────────────
+# ── safe_classify() HOF ──────────────────────────────────────────────────────
 # TDD: testes escritos antes da implementação.
 
 

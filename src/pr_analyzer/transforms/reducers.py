@@ -20,15 +20,15 @@ class EnrichedPR(NamedTuple):
 
 __all__: tuple[str, ...] = (
     "EnrichedPR",
+    "accumulate_stats",
+    "aggregate_stats",
+    "count_by_contribution_nature",
+    "count_by_description_clarity",
     "count_by_field",
     "count_by_language",
     "count_by_project_type",
-    "count_by_contribution_nature",
-    "count_by_description_clarity",
     "count_by_review_complexity",
     "group_by_repo",
-    "accumulate_stats",
-    "aggregate_stats",
 )
 
 
@@ -44,8 +44,9 @@ def count_by_field(field: str) -> Callable[[Iterable[Any]], dict[str, int]]:
             retorna um dicionário mapeando os valores do campo para a contagem de ocorrências.
     """
     return lambda items: reduce(
-        lambda acc, item: acc
-        | {getattr(item, field): acc.get(getattr(item, field), 0) + 1},
+        lambda acc, item: (
+            acc | {getattr(item, field): acc.get(getattr(item, field), 0) + 1}
+        ),
         items,
         {},
     )

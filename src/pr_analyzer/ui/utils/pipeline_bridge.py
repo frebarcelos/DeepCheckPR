@@ -2,12 +2,9 @@
 pipeline_bridge.py — Bridge between the functional pipeline (PRRecord +
 transforms + llm + cache) and the UI's pandas-based view layer.
 
-This module is the integration seam for dev5: it imports from the modules
-owned by dev1 (`io/`), dev2 (`transforms/`), dev3 (`llm/`), and dev4
-(`cache/`, `pipeline/`). Where a downstream module is still in progress
-(e.g. dev2's reducers, dev3's `enrich_prs`), we fall back to local helpers
-with the same shape so the UI is functional today and swaps cleanly when
-the real implementations land.
+This module is the integration seam between the functional processing layers
+and the pandas-based UI. Optional reducers retain local fallbacks with the same
+shape so the interface remains usable in reduced installations.
 
 Side-effect module — UI tree is allowed to do I/O and wrap effects.
 """
@@ -55,12 +52,9 @@ from pr_analyzer.transforms import (
 )
 from pr_analyzer.transforms.reducers import EnrichedPR
 
-# ── Dev2 reducers (when available) ───────────────────────────────────────────
-# When dev2 ships transforms.reducers (TASK-31/32) this import block resolves
-# to their implementation; until then we use the local fallback that mirrors
-# the same shape (Iterable[Any] -> dict[str, int]).
+# ── Reducers with local fallback ─────────────────────────────────────────────
 
-try:  # pragma: no cover - exercised after dev2 merge
+try:  # pragma: no cover - fallback is exercised only in reduced installs
     from pr_analyzer.transforms.reducers import (
         count_by_contribution_nature,
         count_by_description_clarity,
@@ -74,17 +68,12 @@ except ImportError:
     count_by_description_clarity = _local_clarity
 
 
-# ── Dev3 enrich_prs (when available) ────────────────────────────────────────-
-# When dev3 ships `enrich_prs` (TASK-35) the bridge delegates to it directly.
-# Until then we apply the three classifier stubs via map() locally.
-
-
 # ── Type aliases ──────────────────────────────────────────────────────────────
 
 ClassifierFn = Callable[..., str]
 
 
-# ── CSV ingestion via dev1 ────────────────────────────────────────────────────
+# ── CSV ingestion ─────────────────────────────────────────────────────────────
 
 
 def parse_csv_bytes(raw: bytes) -> tuple[PRRecord, ...]:
@@ -113,7 +102,7 @@ def looks_like_pr_record_csv(header_row: Iterable[str]) -> bool:
     return "pr_id" in header or "repo_name" in header
 
 
-# ── Filtering via dev2 ────────────────────────────────────────────────────────
+# ── Filtering ─────────────────────────────────────────────────────────────────
 
 
 def make_filter_chain(
@@ -122,7 +111,7 @@ def make_filter_chain(
     min_size: int | None = None,
     require_body: bool = False,
 ) -> Callable[[Any], bool]:
-    """Compose dev2's filter predicates into a single AND-combined predicate."""
+    """Compose filter predicates into a single AND-combined predicate."""
     predicates: tuple[Callable[[Any], bool], ...] = ()
     if state and state.lower() != "todas":
         predicates = (*predicates, by_state(state))
@@ -139,11 +128,11 @@ def filter_prs(
     prs: Iterable[PRRecord],
     predicate: Callable[[Any], bool],
 ) -> Iterable[PRRecord]:
-    """Lazy filter via dev4's `build_pipeline`."""
+    """Apply a lazy filter through `build_pipeline`."""
     return build_pipeline(prs, filters=(predicate,), mappers=())
 
 
-# ── LLM enrichment via dev3 + dev4 cache ──────────────────────────────────────
+# ── LLM enrichment with persistent cache ─────────────────────────────────────
 
 
 def enrich_prs(
@@ -320,10 +309,10 @@ def _capitalize_clarity(value: str) -> str:
 
 
 def distributions_from_dataframe(df: pd.DataFrame) -> dict[str, dict[str, int]]:
-    """Compute the 4 distribution dicts driving TASK-38's dashboard charts.
+    """Compute the four distribution dicts driving the dashboard charts.
 
     Reads the DataFrame columns the UI uses (lang/type/nature/clarity) and
-    delegates counting to dev2's reducers when available (or the local
+    delegates counting to the project reducers when available (or the local
     fallback otherwise). Returns an empty dict per missing column so charts
     can render an empty state gracefully.
     """
@@ -347,7 +336,7 @@ def _column_counts(df: pd.DataFrame, column: str) -> dict[str, int]:
 
 
 def distributions_from_records(items: Iterable[Any]) -> dict[str, dict[str, int]]:
-    """Apply dev2's reducers directly to a tuple of (Enriched)PR records.
+    """Apply reducers directly to a tuple of (Enriched)PR records.
 
     Used when the UI is fed by the functional pipeline rather than a
     DataFrame round-trip.
@@ -370,7 +359,7 @@ def load_uploaded(
 ) -> tuple[pd.DataFrame, tuple[PRRecord, ...] | None]:
     """Return (display_df, raw_prs_or_None).
 
-    If the uploaded CSV matches the PRRecord schema, parse it via dev1 and
+    If the uploaded CSV matches the PRRecord schema, parse it through I/O and
     keep the immutable tuple alongside the DataFrame so downstream steps
     (LLM enrichment, pure filters) can operate on it. Otherwise treat it as
     a flat display CSV (the demo dataset shape) and return only the

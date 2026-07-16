@@ -25,7 +25,9 @@ def serialize_records(records: Iterable[Any]) -> list[dict[str, Any]]:
 
 
 def _fieldnames(records: list[dict[str, Any]]) -> tuple[str, ...]:
-    return tuple(dict.fromkeys(chain.from_iterable(record.keys() for record in records)))
+    return tuple(
+        dict.fromkeys(chain.from_iterable(record.keys() for record in records))
+    )
 
 
 def export_to_csv(records: Iterable[Any], filepath: FilePath) -> None:

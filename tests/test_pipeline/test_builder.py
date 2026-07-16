@@ -37,7 +37,7 @@ def _classify(pr: PRRecord) -> EnrichedPR:
     )
 
 
-# ── TASK-25: compose() ────────────────────────────────────────────────────────
+# ── compose() ────────────────────────────────────────────────────────────────
 
 
 def test_compose_returns_callable() -> None:
@@ -66,7 +66,7 @@ def test_compose_three_fns() -> None:
     assert compose(double, add_one, negate)(3) == -7
 
 
-# ── TASK-25: pipe() ───────────────────────────────────────────────────────────
+# ── pipe() ───────────────────────────────────────────────────────────────────
 
 
 def test_pipe_no_fns_returns_value() -> None:
@@ -97,9 +97,8 @@ def test_pipe_consistent_with_compose() -> None:
     assert pipe(3, double, add_one) == compose(double, add_one)(3)
 
 
-# ── TASK-26: build_pipeline() ────────────────────────────────────────────────
-# Mocks: lambdas simples no lugar de PRRecord + filtros/mappers reais do dev2.
-# No merge da Sprint 3, os testes de integração substituem estes mocks.
+# ── build_pipeline() ─────────────────────────────────────────────────────────
+# Mocks: lambdas simples no lugar de PRRecord + filtros/mappers reais.
 
 
 def test_build_pipeline_sem_filtros_sem_mappers() -> None:

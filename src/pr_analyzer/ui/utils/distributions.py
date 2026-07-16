@@ -1,10 +1,9 @@
 """
-distributions.py — Local fallback for the count_by_* reducers expected
-from `pr_analyzer.transforms.reducers` (dev2, TASK-31/32).
+distributions.py — Local fallback for the count_by_* reducers expected from
+`pr_analyzer.transforms.reducers`.
 
-Mirrors the dev2 API exactly so the UI can render distribution charts today
-and seamlessly switch to dev2's implementation once it lands — the bridge
-module imports from `transforms.reducers` first and falls back here.
+Mirrors the reducers API so the UI can render distribution charts when the
+main implementation is unavailable.
 
 These helpers are pure (no I/O, no global state) even though they live in
 the UI tree, which keeps the contract identical to the future pure module.
@@ -20,7 +19,7 @@ from typing import Any
 def count_by_field(field: str) -> Callable[[Iterable[Any]], dict[str, int]]:
     """HOF: returns a reducer that counts occurrences of `field` on each item.
 
-    Matches dev2 TASK-31 signature. Works on either a NamedTuple (PRRecord-like)
+    Matches the reducers signature. Works on either a NamedTuple (PRRecord-like)
     or a Mapping — the bridge tolerates both representations.
     """
 

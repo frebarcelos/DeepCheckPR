@@ -1,10 +1,8 @@
 """
-exports.py — UI-side wrapper around dev1's exporters (TASK-48 prep).
+exports.py — UI-side wrapper around the project exporters.
 
-Today this module wraps `pandas.DataFrame.to_csv` / `to_json` so the export
-tab works end-to-end. When dev1 ships `pr_analyzer.io.exporters` with
-`export_to_csv` / `export_to_json` (their TASK-13/14 deliverable referenced
-by fase-4 TASK-48), this file becomes a one-line passthrough.
+This module wraps `pandas.DataFrame.to_csv` / `to_json` so the export tab works
+end-to-end while keeping browser serialization isolated from the pure modules.
 
 Side-effect module — exporters serialize bytes for `st.download_button` to
 hand over to the user's browser.

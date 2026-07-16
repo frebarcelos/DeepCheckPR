@@ -1,8 +1,8 @@
 """
 components/charts.py — Plotly chart builders for the dashboard tab.
 
-Distribution charts (TASK-38) consume `dict[str, int]` directly, matching
-the API of dev2's `count_by_*` reducers (TASK-31/32). This keeps the UI
+Distribution charts consume `dict[str, int]` directly, matching the API of
+the `count_by_*` reducers. This keeps the UI
 layer decoupled from pandas and lets the same chart functions be reused
 when fed either a DataFrame round-trip or the raw functional pipeline.
 
@@ -70,7 +70,7 @@ _DEFAULT_PALETTE: tuple[str, ...] = (
 )
 
 
-# ── Distribution charts (TASK-38) ─────────────────────────────────────────────
+# ── Distribution charts ──────────────────────────────────────────────────────
 
 
 def render_distribution_bar(
@@ -79,7 +79,7 @@ def render_distribution_bar(
     accent_gradient: str = "linear-gradient(180deg,#818cf8,#4f46e5)",
     color_map: dict[str, str] | None = None,
 ) -> None:
-    """Generic vertical bar chart driven by `dict[str, int]` (TASK-38)."""
+    """Generic vertical bar chart driven by `dict[str, int]`."""
     _panel_header(title, accent_gradient)
 
     if not counts:
@@ -115,7 +115,7 @@ def render_distribution_donut(
     accent_gradient: str = "linear-gradient(180deg,#34d399,#059669)",
     color_map: dict[str, str] | None = None,
 ) -> None:
-    """Generic donut chart driven by `dict[str, int]` (TASK-38)."""
+    """Generic donut chart driven by `dict[str, int]`."""
     _panel_header(title, accent_gradient)
 
     if not counts:
@@ -140,7 +140,7 @@ def render_distribution_donut(
     st.plotly_chart(fig, use_container_width=True, config=_chart_cfg())
 
 
-# ── Pre-bound wrappers (named after dev2's count_by_* reducers) ──────────────
+# ── Pre-bound wrappers for the count_by_* reducers ──────────────────────────
 
 
 def render_lang_distribution(counts: dict[str, int]) -> None:
@@ -176,7 +176,7 @@ def render_clarity_distribution(counts: dict[str, int]) -> None:
     )
 
 
-# ── Auxiliary charts kept from sprint-1 (scatter + gauge) ────────────────────
+# ── Auxiliary charts (scatter + gauge) ──────────────────────────────────────
 
 
 def render_scatter_chart(df: pd.DataFrame) -> None:

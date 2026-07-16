@@ -1,4 +1,4 @@
-"""Testes para src/pr_analyzer/llm/client.py — TASK-08."""
+"""Testes para src/pr_analyzer/llm/client.py."""
 
 import http.client as _http
 import json

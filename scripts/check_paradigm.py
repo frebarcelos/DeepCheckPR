@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# ruff: noqa: T201
 """Verificador de conformidade com o paradigma funcional via análise de AST.
 
 Executado pelo pre-commit em cada git commit nos arquivos modificados.
@@ -15,8 +14,8 @@ import sys
 from pathlib import Path
 from typing import NamedTuple
 
-sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
 
 # Módulos que devem ser puramente funcionais (sem efeitos colaterais)
 PURE_MODULES = frozenset({"transforms", "pipeline"})

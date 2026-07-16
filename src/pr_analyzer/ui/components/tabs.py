@@ -1,13 +1,10 @@
 """
 components/tabs.py — Three tab content renderers: dashboard, explorer, export.
 
-Dashboard tab is now structured around TASK-38: four distribution charts
-(language, project type, contribution nature, description clarity) plus the
-sprint-1 scatter and gauge as auxiliary correlation views.
+Dashboard tab contains four distribution charts (language, project type,
+contribution nature and description clarity) plus scatter and gauge views.
 
-Export tab is structured around TASK-48 prep: it routes CSV/JSON downloads
-through `utils.exports`, which will switch to dev1's `io.exporters` once
-they land.
+Export tab routes CSV/JSON downloads through `utils.exports`.
 """
 
 from __future__ import annotations

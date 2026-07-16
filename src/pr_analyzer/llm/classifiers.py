@@ -862,7 +862,7 @@ def enrich_prs(
     return _run_cached(uncached, client, cache_path, max_workers, metrics, _start)
 
 
-# ── safe_classify HOF (TASK-44) ───────────────────────────────────────────────
+# ── safe_classify HOF ────────────────────────────────────────────────────────
 
 
 def safe_classify(
