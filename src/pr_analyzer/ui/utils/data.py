@@ -18,7 +18,7 @@ import streamlit as st
 # ─── Mock / demo dataset ─────────────────────────────────────────────────────
 
 
-@st.cache_data(show_spinner=False)  # type: ignore[misc]
+@st.cache_data(show_spinner=False)  # type: ignore[untyped-decorator]
 def get_mock_data() -> pd.DataFrame:
     """Return a small but representative demo DataFrame."""
     rows: list[dict[str, Any]] = [
@@ -144,7 +144,7 @@ def build_report_markdown(df: pd.DataFrame) -> str:
             f"- {n}: {c}" for n, c in df["nature"].value_counts().items()
         )
     return (
-        f"# GitAnalyzer — Relatório Executivo\n\n"
+        f"# DeepCheckPR — Relatório Executivo\n\n"
         f"**PRs Processados:** {len(df)}\n"
         f"**Linguagem Top:** {top_lang}\n\n"
         f"## Distribuição por Natureza\n{nat_lines}"
@@ -215,7 +215,7 @@ def check_ollama(host: str) -> tuple[bool, list[str]]:
         return False, []
 
 
-@st.cache_data(show_spinner=False)  # type: ignore[misc]
+@st.cache_data(show_spinner=False)  # type: ignore[untyped-decorator]
 def load_archive_sample(
     path: str,
     lang: str,

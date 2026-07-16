@@ -1,17 +1,17 @@
 """
-app.py — GitAnalyzer entry point.
+app.py — DeepCheckPR entry point.
 
 Responsibilities (only):
   1. Page configuration
   2. CSS injection
   3. Session-state bootstrap (including the raw_prs tuple from the pipeline)
   4. Sidebar rendering → filter values + LLM toggle
-  5. Filtering the active DataFrame (and optionally enriching via dev3+dev4)
+  5. Filtering the active DataFrame and optional LLM enrichment
   6. Routing to the correct main-area view (empty state OR tabs)
 
 Business logic, UI components, and data transforms live in their respective
 modules under components/ and utils/. Functional-pipeline integration lives
-in utils.pipeline_bridge (the seam between dev5 and dev1-dev4).
+in utils.pipeline_bridge, the seam between the UI and processing layers.
 """
 
 import os
@@ -20,7 +20,7 @@ import streamlit as st
 
 # ── Page config (must be the very first Streamlit call) ───────────────────────
 st.set_page_config(
-    page_title="GitAnalyzer",
+    page_title="DeepCheckPR",
     page_icon="🧬",
     layout="wide",
 )
@@ -71,7 +71,7 @@ sel_lang, sel_nature, sel_type, sel_clarity, cleaning, llm_tag, metrics = (
 )
 
 
-# ── LLM enrichment (TASK-39) ──────────────────────────────────────────────────
+# ── LLM enrichment ────────────────────────────────────────────────────────────
 def _maybe_enrich() -> None:
     """Classifica PRs com o LLM configurado. Roda apenas uma vez por dataset carregado."""
     if not llm_tag:

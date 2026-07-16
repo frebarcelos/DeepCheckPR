@@ -2,7 +2,7 @@
 components/sidebar.py — Sidebar with branding, data source, LLM backend, pipeline toggles,
 and filters. Returns filter selections so app.py stays decoupled from widget state.
 
-The "Classificação LLM" toggle (TASK-39) controls whether `enrich_prs` is
+The "Classificação LLM" toggle controls whether `enrich_prs` is
 applied to PRRecords coming from the functional pipeline. The result is
 surfaced back through st.session_state.llm_cache_stats so the explorer tab
 can show the "resultados do cache" indicator.
@@ -70,7 +70,7 @@ def _render_brand() -> None:
             🔧
           </div>
           <span style='font-size:18px;font-weight:900;color:#f4f4f5;letter-spacing:-0.5px;'>
-            GitAnalyzer
+            DeepCheckPR
           </span>
         </div>
         """,

@@ -20,6 +20,5 @@ htmlcov/
 .env
 *.local
 
-# Docs e scripts auxiliares
+# Documentação não necessária em runtime
 *.md
-scripts/

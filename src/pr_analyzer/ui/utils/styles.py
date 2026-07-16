@@ -1,5 +1,5 @@
 """
-styles.py — All custom CSS for GitAnalyzer, injected once via inject_css().
+styles.py — All custom CSS for DeepCheckPR, injected once via inject_css().
 Keeping CSS here avoids cluttering app.py and makes theming changes trivial.
 """
 
