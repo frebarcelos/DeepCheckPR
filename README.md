@@ -261,7 +261,7 @@ pytest 8.4.2:
 |---|---:|
 | Testes aprovados | 535 |
 | Testes de integração desmarcados | 1 |
-| Tempo da suíte | 9,13 s |
+| Tempo da suíte | 7,26–9,13 s em duas execuções |
 | Cobertura total com branches | 89% |
 | `cache/`, `pipeline/`, `io/`, `transforms/` | 100% |
 | `llm/classifiers.py` | 94% |
