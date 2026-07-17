@@ -58,26 +58,26 @@ repos:
         entry: python -X utf8 scripts/check_paradigm.py
         types: [python]
 
-      # Testes unitários básicos (sem cobertura) — roda no pre-push via Docker
+      # Testes unitários básicos (sem cobertura) — ambiente Python isolado
       - id: pytest-unit
         name: "Testes unitários (sem integração)"
-        language: system
-        entry: docker compose run --rm -T app python -m pytest tests/ -m "not integration" --tb=short -q --no-header
+        language: python
+        entry: python scripts/run_python_hook.py -m pytest tests/ -m "not integration" --tb=short -q --no-header -p no:cacheprovider --basetemp=.cache/pytest-unit
         pass_filenames: false
         stages: [pre-push]
 
-      # Cobertura mínima de testes: 80% — roda no pre-push via Docker
+      # Cobertura mínima de testes: 80% — reutiliza o ambiente isolado acima
       - id: coverage-check
         name: "Cobertura de testes >= 80%"
-        language: system
-        entry: docker compose run --rm -T app python -m pytest tests/ -m "not integration" --cov=src/pr_analyzer --cov-fail-under=80 --cov-report=term-missing --tb=short -q --no-header
+        language: python
+        entry: python scripts/run_python_hook.py -m pytest tests/ -m "not integration" --cov=src/pr_analyzer --cov-fail-under=80 --cov-report=term-missing --tb=short -q --no-header -p no:cacheprovider --basetemp=.cache/pytest-coverage
         pass_filenames: false
         stages: [pre-push]
 
       # Revisão determinística pelas regras locais — sem API externa
       - id: code-review
         name: "Revisao de codigo (regras locais)"
-        language: system
-        entry: docker compose run --rm -T app python scripts/code_review.py
+        language: python
+        entry: python scripts/code_review.py
         pass_filenames: false
         stages: [pre-push]
